@@ -12,6 +12,7 @@
 
 #define RESP_200 "HTTP/1.0 200 OK\r\n"
 #define RESP_400 "HTTP/1.0 400 Bad Request\r\n"
+#define RESP_404 "HTTP/1.0 404 Not Found\r\n"
 #define RESP_405 "HTTP/1.0 405 Method Not Allowed\r\n"
 #define RESP_505 "HTTP/1.0 505 HTTP Version Not Supported\r\n"
 
@@ -28,8 +29,13 @@ enum method {
 
 void handle_request(int fd, enum method method, char *uri)
 {
-	static const char resp[] = RESP_200 "Content-Type: text/html\r\n\r\n<!DOCTYPE html><html><meta charset=\"utf-8\"><title>Little Tiny Website</title><head></head><body><h1>Hello</h1></body></html>";
-	write(fd, resp, strlen(resp));
+	if (!strcmp(uri, "/")) {
+		static const char resp[] = RESP_200 "Content-Type: text/html\r\n\r\n<!DOCTYPE html><html><meta charset=\"utf-8\"><title>Little Tiny Website</title><head></head><body><h1>Hello</h1></body></html>";
+		write(fd, resp, strlen(resp));
+	} else {
+		static const char resp[] = RESP_404 "Content-Type: text/plain\r\n\r\nnot found";
+		write(fd, resp, strlen(resp));
+	}
 }
 
 bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs)
