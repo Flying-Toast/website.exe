@@ -26,13 +26,13 @@ bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hd
 {
 	// we only do GETs for now
 	if (method != METHOD_GET) {
-		const char resp[] = "HTTP/1.0 405 Method Not Allowed\r\nAllow: GET\r\n";
+		static const char resp[] = "HTTP/1.0 405 Method Not Allowed\r\nAllow: GET\r\n";
 		write(fd, resp, strlen(resp));
 		return false;
 	}
 
 	if (strcmp(vsn, "HTTP/1.0") && strcmp(vsn, "HTTP/1.1")) {
-		const char resp[] = "HTTP/1.0 505 HTTP Version Not Supported\r\n";
+		static const char resp[] = "HTTP/1.0 505 HTTP Version Not Supported\r\n";
 		write(fd, resp, strlen(resp));
 		return false;
 	}
@@ -148,7 +148,7 @@ int main(void)
 				if (validate_request(connfd, method, uri, vsn, hdrs))
 					handle_request(connfd, method, uri);
 			} else { // parsing failed
-				const char resp[] = "HTTP/1.0 400 Bad Request\r\n";
+				static const char resp[] = "HTTP/1.0 400 Bad Request\r\n";
 				write(connfd, resp, strlen(resp));
 			}
 
