@@ -25,7 +25,7 @@ bool validate_request(int fd, char *method, char *uri, char *vsn, char *hdrs)
 	}
 
 	if (strcmp(vsn, "HTTP/1.0") && strcmp(vsn, "HTTP/1.1")) {
-		const char resp[] = "HTTP/1.0 400 Bad Request\r\n";
+		const char resp[] = "HTTP/1.0 505 HTTP Version Not Supported\r\n";
 		write(fd, resp, strlen(resp));
 		return false;
 	}
