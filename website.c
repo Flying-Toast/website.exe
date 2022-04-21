@@ -10,15 +10,22 @@
 #define BIND_PORT 8000
 #define BUFLEN 1024
 
-void handle_request(int fd)
+enum method {
+	METHOD_GET,
+	METHOD_HEAD,
+	METHOD_POST,
+	METHOD_NOT_RECOGNIZED
+};
+
+void handle_request(int fd, enum method method, char *uri)
 {
 	write(fd, "Hello", 5);
 }
 
-bool validate_request(int fd, char *method, char *uri, char *vsn, char *hdrs)
+bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs)
 {
 	// we only do GETs for now
-	if (strcmp(method, "GET")) {
+	if (method != METHOD_GET) {
 		const char resp[] = "HTTP/1.0 405 Method Not Allowed\r\nAllow: GET\r\n";
 		write(fd, resp, strlen(resp));
 		return false;
@@ -33,15 +40,23 @@ bool validate_request(int fd, char *method, char *uri, char *vsn, char *hdrs)
 	return true;
 }
 
-bool parse_request(char *req, char **method_out, char **uri_out, char **vsn_out, char **hdrs_out)
+bool parse_request(char *req, enum method *method_out, char **uri_out, char **vsn_out, char **hdrs_out)
 {
 	// extract method
-	*method_out = req;
+	char *method_str = req;
 	while (*req != ' ') {
 		if (*req++ == '\0')
 			return false;
 	}
 	*req = '\0';
+	if (!strcmp(method_str, "GET"))
+		*method_out = METHOD_GET;
+	else if (!strcmp(method_str, "HEAD"))
+		*method_out = METHOD_HEAD;
+	else if (!strcmp(method_str, "POST"))
+		*method_out = METHOD_POST;
+	else
+		*method_out = METHOD_NOT_RECOGNIZED;
 
 	// extract uri
 	*uri_out = ++req;
@@ -121,7 +136,8 @@ int main(void)
 			close(connfd);
 		} else { // child
 			char buf[BUFLEN] = {0};
-			char *method, *uri, *vsn, *hdrs;
+			enum method method;
+			char *uri, *vsn, *hdrs;
 
 			int nread = read(connfd, buf, BUFLEN - 1); // -1 to keep a NUL at the end
 			if (nread == -1) {
@@ -129,7 +145,7 @@ int main(void)
 			} else if (nread == BUFLEN - 1) {
 				fputs("Request too long - aborting", stderr);
 			} else if (parse_request(buf, &method, &uri, &vsn, &hdrs) && validate_request(connfd, method, uri, vsn, hdrs)) {
-				handle_request(connfd);
+				handle_request(connfd, method, uri);
 			}
 
 			if (shutdown(connfd, SHUT_RDWR))
