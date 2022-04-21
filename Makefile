@@ -1,17 +1,22 @@
 CC=gcc
-OBJECTS=website.o
+APP=website
 CFLAGS=-Wall
-EXE=website
 
-$(EXE): $(OBJECTS)
-	$(CC) $(CFLAGS) -o $(EXE) $(OBJECTS)
+$(APP): $(APP).o
+	$(CC) $(CFLAGS) -o $(APP) $(APP).o
+
+$(APP).o: quinelines.gen
+
+quinelines.gen: $(APP).c
+	sed 's|^#include "quinelines.gen"$$|***LINES***|; s/\\/\\\\/g; s/"/\\"/g' $(APP).c | awk '{printf "\"%s\",\n", $$0}' > quinelines.gen
 
 .PHONY: run
-run: $(EXE)
-	@echo "=== RUN ./$(EXE) ==="
-	@./$(EXE)
+run: $(APP)
+	@echo "=== RUN ./$(APP) ==="
+	@./$(APP)
 
 .PHONY: clean
 clean:
 	$(RM) *.o
-	$(RM) $(EXE)
+	$(RM) *.gen
+	$(RM) $(APP)

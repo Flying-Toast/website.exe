@@ -10,6 +10,10 @@
 #define BIND_PORT 8000
 #define BUFLEN 1024
 
+static const char *src_lines[] = {
+#include "quinelines.gen"
+};
+
 enum method {
 	METHOD_GET,
 	METHOD_HEAD,
