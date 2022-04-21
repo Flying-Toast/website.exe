@@ -19,7 +19,8 @@ enum method {
 
 void handle_request(int fd, enum method method, char *uri)
 {
-	write(fd, "Hello", 5);
+	static const char resp[] = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE html><html><meta charset=\"utf-8\"><title>Little Tiny Website</title><head></head><body><h1>Hello</h1></body></html>";
+	write(fd, resp, strlen(resp));
 }
 
 bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs)
