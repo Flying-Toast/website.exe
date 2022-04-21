@@ -15,6 +15,24 @@ void handle_request(int fd)
 	write(fd, "Hello", 5);
 }
 
+bool validate_request(int fd, char *method, char *uri, char *vsn, char *hdrs)
+{
+	// we only do GETs for now
+	if (strcmp(method, "GET")) {
+		const char resp[] = "HTTP/1.0 405 Method Not Allowed\r\nAllow: GET\r\n";
+		write(fd, resp, strlen(resp));
+		return false;
+	}
+
+	if (strcmp(vsn, "HTTP/1.0") && strcmp(vsn, "HTTP/1.1")) {
+		const char resp[] = "HTTP/1.0 400 Bad Request\r\n";
+		write(fd, resp, strlen(resp));
+		return false;
+	}
+
+	return true;
+}
+
 bool parse_request(char *req, char **method_out, char **uri_out, char **vsn_out, char **hdrs_out)
 {
 	// extract method
@@ -108,7 +126,7 @@ int main(void)
 				perror("read");
 			} else if (nread == BUFLEN - 1) {
 				fputs("Request too long - aborting", stderr);
-			} else if (parse_request(buf, &method, &uri, &vsn, &hdrs)) {
+			} else if (parse_request(buf, &method, &uri, &vsn, &hdrs) && validate_request(connfd, method, uri, vsn, hdrs)) {
 				handle_request(connfd);
 			}
 
