@@ -43,7 +43,7 @@ void write_quine(int fd, bool verbose)
 		}
 
 		if (!verbose) {
-			dprintf(fd, "\t/* lines omitted for brevity - see /quine.c for full quine */\n");
+			dprintf(fd, "\t\"***** lines omitted for brevity - see /quine.c for full quine *****\"\n");
 			continue;
 		}
 
