@@ -144,8 +144,12 @@ int main(void)
 				perror("read");
 			} else if (nread == BUFLEN - 1) {
 				fputs("Request too long - aborting", stderr);
-			} else if (parse_request(buf, &method, &uri, &vsn, &hdrs) && validate_request(connfd, method, uri, vsn, hdrs)) {
-				handle_request(connfd, method, uri);
+			} else if (parse_request(buf, &method, &uri, &vsn, &hdrs)) {
+				if (validate_request(connfd, method, uri, vsn, hdrs))
+					handle_request(connfd, method, uri);
+			} else { // parsing failed
+				const char resp[] = "HTTP/1.0 400 Bad Request\r\n";
+				write(connfd, resp, strlen(resp));
 			}
 
 			if (shutdown(connfd, SHUT_RDWR))
