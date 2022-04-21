@@ -10,6 +10,11 @@
 #define BIND_PORT 8000
 #define BUFLEN 1024
 
+#define RESP_200 "HTTP/1.0 200 OK\r\n"
+#define RESP_400 "HTTP/1.0 400 Bad Request\r\n"
+#define RESP_405 "HTTP/1.0 405 Method Not Allowed\r\n"
+#define RESP_505 "HTTP/1.0 505 HTTP Version Not Supported\r\n"
+
 static const char *src_lines[] = {
 #include "quinelines.gen"
 };
@@ -23,7 +28,7 @@ enum method {
 
 void handle_request(int fd, enum method method, char *uri)
 {
-	static const char resp[] = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE html><html><meta charset=\"utf-8\"><title>Little Tiny Website</title><head></head><body><h1>Hello</h1></body></html>";
+	static const char resp[] = RESP_200 "Content-Type: text/html\r\n\r\n<!DOCTYPE html><html><meta charset=\"utf-8\"><title>Little Tiny Website</title><head></head><body><h1>Hello</h1></body></html>";
 	write(fd, resp, strlen(resp));
 }
 
@@ -31,13 +36,13 @@ bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hd
 {
 	// we only do GETs for now
 	if (method != METHOD_GET) {
-		static const char resp[] = "HTTP/1.0 405 Method Not Allowed\r\nAllow: GET\r\n";
+		static const char resp[] = RESP_405 "Allow: GET\r\n";
 		write(fd, resp, strlen(resp));
 		return false;
 	}
 
 	if (strcmp(vsn, "HTTP/1.0") && strcmp(vsn, "HTTP/1.1")) {
-		static const char resp[] = "HTTP/1.0 505 HTTP Version Not Supported\r\n";
+		static const char resp[] = RESP_505;
 		write(fd, resp, strlen(resp));
 		return false;
 	}
@@ -153,7 +158,7 @@ int main(void)
 				if (validate_request(connfd, method, uri, vsn, hdrs))
 					handle_request(connfd, method, uri);
 			} else { // parsing failed
-				static const char resp[] = "HTTP/1.0 400 Bad Request\r\n";
+				static const char resp[] = RESP_400;
 				write(connfd, resp, strlen(resp));
 			}
 
