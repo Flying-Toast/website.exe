@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
 
 #define BIND_PORT 8000
 #define BUFLEN 1024
@@ -11,6 +13,46 @@
 void handle_request(int fd)
 {
 	write(fd, "Hello", 5);
+}
+
+bool parse_request(char *req, char **method_out, char **uri_out, char **vsn_out, char **hdrs_out)
+{
+	// extract method
+	*method_out = req;
+	while (*req != ' ') {
+		if (*req++ == '\0')
+			return false;
+	}
+	*req = '\0';
+
+	// extract uri
+	*uri_out = ++req;
+	while (*req != ' ') {
+		if (*req++ == '\0')
+			return false;
+	}
+	*req = '\0';
+
+	// extract version
+	*vsn_out = ++req;
+	while (*req != '\r') {
+		if (*req++ == '\0')
+			return false;
+	}
+	*req = '\0';
+
+	// extract headers
+	if (*++req != '\n' || *++req == '\0')
+		return false;
+	*hdrs_out = req;
+	while (strncmp(req, "\r\n\r\n", 4)) {
+		if (*req == '\0')
+			return false;
+		req++;
+	}
+	*req = '\0';
+
+	return true;
 }
 
 int main(void)
@@ -59,12 +101,14 @@ int main(void)
 			close(connfd);
 		} else { // child
 			char buf[BUFLEN] = {0};
+			char *method, *uri, *vsn, *hdrs;
+
 			int nread = read(connfd, buf, BUFLEN - 1); // -1 to keep a NUL at the end
 			if (nread == -1) {
 				perror("read");
 			} else if (nread == BUFLEN - 1) {
 				fputs("Request too long - aborting", stderr);
-			} else {
+			} else if (parse_request(buf, &method, &uri, &vsn, &hdrs)) {
 				handle_request(connfd);
 			}
 
