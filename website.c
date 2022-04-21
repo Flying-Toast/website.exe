@@ -60,15 +60,17 @@ bool parse_request(char *req, char **method_out, char **uri_out, char **vsn_out,
 	*req = '\0';
 
 	// extract headers
-	if (*++req != '\n' || *++req == '\0')
+	if (*++req != '\n')
 		return false;
-	*hdrs_out = req;
-	while (strncmp(req, "\r\n\r\n", 4)) {
-		if (*req == '\0')
-			return false;
-		req++;
+	*hdrs_out = ++req;
+	if (*req != '\0') {
+		while (strncmp(req, "\r\n\r\n", 4)) {
+			if (*req == '\0')
+				return false;
+			req++;
+		}
+		*req = '\0';
 	}
-	*req = '\0';
 
 	return true;
 }
