@@ -16,6 +16,8 @@
 #define RESP_405 "HTTP/1.0 405 Method Not Allowed\r\n"
 #define RESP_505 "HTTP/1.0 505 HTTP Version Not Supported\r\n"
 
+#define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 static const char *src_lines[] = {
 #include "quinelines.gen"
 };
@@ -27,11 +29,57 @@ enum method {
 	METHOD_NOT_RECOGNIZED
 };
 
+void write_quine(int fd, bool verbose)
+{
+	for (size_t lineidx = 0; lineidx < ARRAY_LEN(src_lines); lineidx++) {
+		const char *curr_line = src_lines[lineidx];
+		if (strcmp(curr_line, "***LINES***")) {
+			dprintf(fd, "%s\n", curr_line);
+			continue;
+		}
+
+		if (!verbose) {
+			dprintf(fd, "\t/* lines omitted for brevity - see /quine.c for full quine */\n");
+			continue;
+		}
+
+		for (size_t i = 0; i < ARRAY_LEN(src_lines); i++) {
+			write(fd, "\"", 1);
+
+			const char *line = src_lines[i];
+			size_t run = 0;
+			while (line[run] != '\0') {
+				if (line[run] == '\\' || line[run] == '"') {
+					if (run)
+						write(fd, line, run);
+					dprintf(fd, "\\%c", line[run]);
+					line += run + 1;
+					run = 0;
+				} else {
+					run++;
+				}
+			}
+			if (run)
+				write(fd, line, run);
+
+			write(fd, "\",\n", 3);
+		}
+	}
+}
+
 void handle_request(int fd, enum method method, char *uri)
 {
 	if (!strcmp(uri, "/")) {
-		static const char resp[] = RESP_200 "Content-Type: text/html\r\n\r\n<!DOCTYPE html><html><meta charset=\"utf-8\"><title>Little Tiny Website</title><head></head><body><h1>Hello</h1></body></html>";
+		static const char resp[] = RESP_200 "Content-Type: text/html\r\n\r\n<!DOCTYPE html><html><meta charset=\"utf-8\"><title>Little Tiny Website</title><head></head><body><h1>Hello</h1><p><a href=\"/quine.c\">See this website's source code (a quine!)</a>, or see a <a href=\"/website.c\">more readable version</a> of the source</p></body></html>";
 		write(fd, resp, strlen(resp));
+	} else if (!strcmp(uri, "/quine.c")) {
+		static const char resp[] = RESP_200 "Content-Type: text/plain\r\n\r\n";
+		write(fd, resp, strlen(resp));
+		write_quine(fd, true);
+	} else if (!strcmp(uri, "/website.c")) {
+		static const char resp[] = RESP_200 "Content-Type: text/plain\r\n\r\n";
+		write(fd, resp, strlen(resp));
+		write_quine(fd, false);
 	} else {
 		static const char resp[] = RESP_404 "Content-Type: text/plain\r\n\r\nnot found";
 		write(fd, resp, strlen(resp));
