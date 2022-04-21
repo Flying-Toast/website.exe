@@ -104,7 +104,7 @@ bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hd
 {
 	// we only do GETs for now
 	if (method != METHOD_GET) {
-		static const char resp[] = RESP_405 "Allow: GET\r\n";
+		static const char resp[] = RESP_405 "Allow: GET\r\n" END_HDRS;
 		write(fd, resp, strlen(resp));
 		return false;
 	}
