@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #define BIND_PORT 8000
+#define BUFLEN 1024
 
 void handle_request(int fd)
 {
@@ -57,9 +58,20 @@ int main(void)
 		if (pid) { // parent
 			close(connfd);
 		} else { // child
-			handle_request(connfd);
-			shutdown(connfd, SHUT_RDWR);
-			close(connfd);
+			char buf[BUFLEN] = {0};
+			int nread = read(connfd, buf, BUFLEN - 1); // -1 to keep a NUL at the end
+			if (nread == -1) {
+				perror("read");
+			} else if (nread == BUFLEN - 1) {
+				fputs("Request too long - aborting", stderr);
+			} else {
+				handle_request(connfd);
+			}
+
+			if (shutdown(connfd, SHUT_RDWR))
+				perror("shutdown");
+			if (close(connfd))
+				perror("close");
 			return 0;
 		}
 	}
