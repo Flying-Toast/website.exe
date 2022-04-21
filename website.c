@@ -16,6 +16,10 @@
 #define RESP_405 "HTTP/1.0 405 Method Not Allowed\r\n"
 #define RESP_505 "HTTP/1.0 505 HTTP Version Not Supported\r\n"
 
+#define CONTENT_TYPE_HTML "Content-Type: text/html\r\n"
+#define CONTENT_TYPE_PLAINTEXT "Content-Type: text/plain\r\n"
+#define END_HDRS "\r\n"
+
 #define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 static const char *src_lines[] = {
@@ -70,18 +74,28 @@ void write_quine(int fd, bool verbose)
 void handle_request(int fd, enum method method, char *uri)
 {
 	if (!strcmp(uri, "/")) {
-		static const char resp[] = RESP_200 "Content-Type: text/html\r\n\r\n<!DOCTYPE html><html><meta charset=\"utf-8\"><title>Little Tiny Website</title><head></head><body><h1>Hello</h1><p><a href=\"/quine.c\">See this website's source code (a quine!)</a>, or see a <a href=\"/website.c\">more readable version</a> of the source</p></body></html>";
+		static const char resp[] =
+			RESP_200
+			CONTENT_TYPE_HTML
+			END_HDRS
+			#include "pages/index.string.gen"
+		;
 		write(fd, resp, strlen(resp));
 	} else if (!strcmp(uri, "/quine.c")) {
-		static const char resp[] = RESP_200 "Content-Type: text/plain\r\n\r\n";
+		static const char resp[] = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
 		write(fd, resp, strlen(resp));
 		write_quine(fd, true);
 	} else if (!strcmp(uri, "/website.c")) {
-		static const char resp[] = RESP_200 "Content-Type: text/plain\r\n\r\n";
+		static const char resp[] = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
 		write(fd, resp, strlen(resp));
 		write_quine(fd, false);
 	} else {
-		static const char resp[] = RESP_404 "Content-Type: text/plain\r\n\r\nnot found";
+		static const char resp[] =
+			RESP_404
+			CONTENT_TYPE_HTML
+			END_HDRS
+			#include "pages/404_page.string.gen"
+		;
 		write(fd, resp, strlen(resp));
 	}
 }
