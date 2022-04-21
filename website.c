@@ -1,4 +1,7 @@
 #include <sys/socket.h>
+#include <sys/sendfile.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -6,14 +9,18 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <fcntl.h>
+#include <linux/openat2.h>
 
 #define BIND_PORT 8000
 #define BUFLEN 1024
+#define PAGES_DIRECTORY "./pages/"
 
 #define RESP_200 "HTTP/1.0 200 OK\r\n"
 #define RESP_400 "HTTP/1.0 400 Bad Request\r\n"
 #define RESP_404 "HTTP/1.0 404 Not Found\r\n"
 #define RESP_405 "HTTP/1.0 405 Method Not Allowed\r\n"
+#define RESP_500 "HTTP/1.0 500 Internal Server Error\r\n"
 #define RESP_505 "HTTP/1.0 505 HTTP Version Not Supported\r\n"
 
 #define CONTENT_TYPE_HTML "Content-Type: text/html\r\n"
@@ -71,16 +78,59 @@ void write_quine(int fd, bool verbose)
 	}
 }
 
+void respond_with_page_or_500(int connfd, const char *status_and_headers, const char *page_filename)
+{
+	int pagedirfd = open(PAGES_DIRECTORY, O_DIRECTORY | O_RDONLY);
+	if (pagedirfd == -1) {
+		fprintf(stderr, "can't open pages directory `%s`: %s", PAGES_DIRECTORY, strerror(errno));
+		goto err_noclose;
+	}
+	struct open_how how = {
+		.flags = O_RDONLY,
+		.resolve = RESOLVE_BENEATH
+	};
+	int pagefd = syscall(SYS_openat2, pagedirfd, page_filename, &how, sizeof(how));
+	close(pagedirfd);
+	if (pagefd == -1) {
+		perror("openat2");
+		goto err_noclose;
+	}
+
+	struct stat stats;
+	if (fstat(pagefd, &stats)) {
+		perror("fstat");
+		goto err;
+	}
+
+	if (!S_ISREG(stats.st_mode)) {
+		fputs("Can't send page file - it's not a regular file", stderr);
+		goto err;
+	}
+
+	write(connfd, status_and_headers, strlen(status_and_headers));
+
+	if (sendfile(connfd, pagefd, NULL, stats.st_size) == -1)
+		perror("sendfile");
+
+	close(pagefd);
+	return;
+
+err:
+	close(pagefd);
+err_noclose:
+	static const char resp[] =
+		RESP_500
+		CONTENT_TYPE_PLAINTEXT
+		END_HDRS
+		"Server error"
+	;
+	write(connfd, resp, strlen(resp));
+}
+
 void handle_request(int fd, enum method method, char *uri)
 {
 	if (!strcmp(uri, "/")) {
-		static const char resp[] =
-			RESP_200
-			CONTENT_TYPE_HTML
-			END_HDRS
-			#include "pages/index.string.gen"
-		;
-		write(fd, resp, strlen(resp));
+		respond_with_page_or_500(fd, RESP_200 CONTENT_TYPE_HTML END_HDRS, "index.html");
 	} else if (!strcmp(uri, "/quine.c")) {
 		static const char resp[] = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
 		write(fd, resp, strlen(resp));
@@ -90,13 +140,7 @@ void handle_request(int fd, enum method method, char *uri)
 		write(fd, resp, strlen(resp));
 		write_quine(fd, false);
 	} else {
-		static const char resp[] =
-			RESP_404
-			CONTENT_TYPE_HTML
-			END_HDRS
-			#include "pages/404_page.string.gen"
-		;
-		write(fd, resp, strlen(resp));
+		respond_with_page_or_500(fd, RESP_404 CONTENT_TYPE_HTML END_HDRS, "404_page.html");
 	}
 }
 
