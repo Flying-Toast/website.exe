@@ -33,6 +33,8 @@ static const char *src_lines[] = {
 #include "quinelines.gen"
 };
 
+static int pagedirfd;
+
 enum method {
 	METHOD_GET,
 	METHOD_HEAD,
@@ -80,17 +82,11 @@ void write_quine(int fd, bool verbose)
 
 void respond_with_page_or_500(int connfd, const char *status_and_headers, const char *page_filename)
 {
-	int pagedirfd = open(PAGES_DIRECTORY, O_DIRECTORY | O_RDONLY);
-	if (pagedirfd == -1) {
-		fprintf(stderr, "can't open pages directory `%s`: %s", PAGES_DIRECTORY, strerror(errno));
-		goto err_noclose;
-	}
 	struct open_how how = {
 		.flags = O_RDONLY,
 		.resolve = RESOLVE_BENEATH
 	};
 	int pagefd = syscall(SYS_openat2, pagedirfd, page_filename, &how, sizeof(how));
-	close(pagedirfd);
 	if (pagefd == -1) {
 		perror("openat2");
 		goto err_noclose;
@@ -214,6 +210,12 @@ bool parse_request(char *req, enum method *method_out, char **uri_out, char **vs
 
 int main(void)
 {
+	pagedirfd = open(PAGES_DIRECTORY, O_DIRECTORY | O_RDONLY);
+	if (pagedirfd == -1) {
+		fprintf(stderr, "Can't open pages directory \"%s\": %s\n", PAGES_DIRECTORY, strerror(errno));
+		return 1;
+	}
+
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd == -1) {
 		perror("socket");
@@ -276,11 +278,12 @@ int main(void)
 
 			if (shutdown(connfd, SHUT_RDWR))
 				perror("shutdown");
-			if (close(connfd))
-				perror("close");
+			close(connfd);
+			close(pagedirfd);
 			return 0;
 		}
 	}
 
 	close(sockfd);
+	close(pagedirfd);
 }
