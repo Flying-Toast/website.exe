@@ -89,43 +89,35 @@ int openat_beneath(int dirfd, const char *pathname, int flags)
 	return syscall(SYS_openat2, dirfd, pathname, &how, sizeof(how));
 }
 
-void respond_with_page_or_500(int connfd, const char *status_and_headers, const char *page_filename)
+int send_file_in_dir(int connfd, int dirfd, const char *filename)
 {
-	int pagefd = openat_beneath(pagedirfd, page_filename, O_RDONLY);
-	if (pagefd == -1) {
+	int filefd = openat_beneath(dirfd, filename, O_RDONLY);
+	if (filefd == -1) {
 		perror("openat_beneath");
-		goto err_noclose;
+		return -1;
 	}
 
 	struct stat stats;
-	if (fstat(pagefd, &stats)) {
-		perror("fstat");
-		goto err;
-	}
+	fstat(filefd, &stats);
 
 	if (!S_ISREG(stats.st_mode)) {
-		fputs("Can't send page file - it's not a regular file", stderr);
-		goto err;
+		fprintf(stderr, "Can't send file `%s` - not a regular file\n", filename);
+		close(filefd);
+		return -1;
 	}
 
+	sendfile(connfd, filefd, NULL, stats.st_size);
+
+	close(filefd);
+	return 0;
+}
+
+void respond_with_page_or_500(int connfd, const char *status_and_headers, const char *page_filename)
+{
 	write(connfd, status_and_headers, strlen(status_and_headers));
-
-	if (sendfile(connfd, pagefd, NULL, stats.st_size) == -1)
-		perror("sendfile");
-
-	close(pagefd);
-	return;
-
-err:
-	close(pagefd);
-err_noclose:
-	static const char resp[] =
-		RESP_500
-		CONTENT_TYPE_PLAINTEXT
-		END_HDRS
-		"Server error"
-	;
-	write(connfd, resp, strlen(resp));
+	if (send_file_in_dir(connfd, pagedirfd, page_filename)) {
+		// TODO: buffer the status&headers so it can be unsent in order to send 500
+	}
 }
 
 void handle_request(int fd, enum method method, char *uri)
