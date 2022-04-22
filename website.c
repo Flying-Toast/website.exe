@@ -89,7 +89,7 @@ int openat_beneath(int dirfd, const char *pathname, int flags)
 	return syscall(SYS_openat2, dirfd, pathname, &how, sizeof(how));
 }
 
-int send_file_in_dir(int connfd, int dirfd, const char *filename)
+int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, const char *filename)
 {
 	int filefd = openat_beneath(dirfd, filename, O_RDONLY);
 	if (filefd == -1) {
@@ -106,6 +106,7 @@ int send_file_in_dir(int connfd, int dirfd, const char *filename)
 		return -1;
 	}
 
+	write(connfd, status_and_headers, strlen(status_and_headers));
 	sendfile(connfd, filefd, NULL, stats.st_size);
 
 	close(filefd);
@@ -114,9 +115,14 @@ int send_file_in_dir(int connfd, int dirfd, const char *filename)
 
 void respond_with_page_or_500(int connfd, const char *status_and_headers, const char *page_filename)
 {
-	write(connfd, status_and_headers, strlen(status_and_headers));
-	if (send_file_in_dir(connfd, pagedirfd, page_filename)) {
-		// TODO: buffer the status&headers so it can be unsent in order to send 500
+	if (send_file_in_dir(connfd, status_and_headers, pagedirfd, page_filename)) {
+		static const char resp[] =
+			RESP_500
+			CONTENT_TYPE_PLAINTEXT
+			END_HDRS
+			"Server error"
+		;
+		write(connfd, resp, strlen(resp));
 	}
 }
 
