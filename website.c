@@ -15,6 +15,8 @@
 #define BIND_PORT 8000
 #define BUFLEN 1024
 #define PAGES_DIRECTORY "./pages/"
+#define STATIC_DIRECTORY "./static/"
+#define SERVE_STATIC_FROM "/static/"
 
 #define RESP_200 "HTTP/1.0 200 OK\r\n"
 #define RESP_400 "HTTP/1.0 400 Bad Request\r\n"
@@ -33,7 +35,7 @@ static const char *src_lines[] = {
 #include "quinelines.gen"
 };
 
-static int pagedirfd;
+static int pagedirfd, staticdirfd;
 
 enum method {
 	METHOD_GET,
@@ -126,6 +128,11 @@ void respond_with_page_or_500(int connfd, const char *status_and_headers, const 
 	}
 }
 
+void not_found(int fd)
+{
+	respond_with_page_or_500(fd, RESP_404 CONTENT_TYPE_HTML END_HDRS, "404_page.html");
+}
+
 void handle_request(int fd, enum method method, char *uri)
 {
 	if (!strcmp(uri, "/")) {
@@ -138,8 +145,12 @@ void handle_request(int fd, enum method method, char *uri)
 		static const char resp[] = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
 		write(fd, resp, strlen(resp));
 		write_quine(fd, false);
+	} else if (!strncmp(uri, SERVE_STATIC_FROM, strlen(SERVE_STATIC_FROM))) {
+		if (send_file_in_dir(fd, RESP_200 END_HDRS, staticdirfd, uri + strlen(SERVE_STATIC_FROM))) {
+			not_found(fd);
+		}
 	} else {
-		respond_with_page_or_500(fd, RESP_404 CONTENT_TYPE_HTML END_HDRS, "404_page.html");
+		not_found(fd);
 	}
 }
 
@@ -211,13 +222,23 @@ bool parse_request(char *req, enum method *method_out, char **uri_out, char **vs
 	return true;
 }
 
+int open_dir_for_serving(const char *pathname)
+{
+	int fd = open(pathname, O_DIRECTORY | O_RDONLY);
+	if (fd == -1) {
+		fprintf(stderr, "Can't open directory \"%s\" for serving: %s\n", pathname, strerror(errno));
+	}
+	return fd;
+}
+
 int main(void)
 {
-	pagedirfd = open(PAGES_DIRECTORY, O_DIRECTORY | O_RDONLY);
-	if (pagedirfd == -1) {
-		fprintf(stderr, "Can't open pages directory \"%s\": %s\n", PAGES_DIRECTORY, strerror(errno));
+	pagedirfd = open_dir_for_serving(PAGES_DIRECTORY);
+	if (pagedirfd == -1)
 		return 1;
-	}
+	staticdirfd = open_dir_for_serving(STATIC_DIRECTORY);
+	if (staticdirfd == -1)
+		return 1;
 
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd == -1) {
@@ -283,10 +304,12 @@ int main(void)
 				perror("shutdown");
 			close(connfd);
 			close(pagedirfd);
+			close(staticdirfd);
 			return 0;
 		}
 	}
 
 	close(sockfd);
 	close(pagedirfd);
+	close(staticdirfd);
 }
