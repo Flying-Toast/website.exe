@@ -80,15 +80,20 @@ void write_quine(int fd, bool verbose)
 	}
 }
 
-void respond_with_page_or_500(int connfd, const char *status_and_headers, const char *page_filename)
+int openat_beneath(int dirfd, const char *pathname, int flags)
 {
 	struct open_how how = {
-		.flags = O_RDONLY,
+		.flags = flags,
 		.resolve = RESOLVE_BENEATH
 	};
-	int pagefd = syscall(SYS_openat2, pagedirfd, page_filename, &how, sizeof(how));
+	return syscall(SYS_openat2, dirfd, pathname, &how, sizeof(how));
+}
+
+void respond_with_page_or_500(int connfd, const char *status_and_headers, const char *page_filename)
+{
+	int pagefd = openat_beneath(pagedirfd, page_filename, O_RDONLY);
 	if (pagefd == -1) {
-		perror("openat2");
+		perror("openat_beneath");
 		goto err_noclose;
 	}
 
