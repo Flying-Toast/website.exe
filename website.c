@@ -23,6 +23,7 @@
 #define RESP_404 "HTTP/1.0 404 Not Found\r\n"
 #define RESP_405 "HTTP/1.0 405 Method Not Allowed\r\n"
 #define RESP_500 "HTTP/1.0 500 Internal Server Error\r\n"
+#define RESP_501 "HTTP/1.0 501 Not Implemented\r\n"
 #define RESP_505 "HTTP/1.0 505 HTTP Version Not Supported\r\n"
 
 #define CONTENT_TYPE_HTML "Content-Type: text/html\r\n"
@@ -156,6 +157,12 @@ void handle_request(int fd, enum method method, char *uri)
 
 bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs)
 {
+	if (method == METHOD_NOT_RECOGNIZED) {
+		static const char resp[] = RESP_501;
+		write(fd, resp, strlen(resp));
+		return false;
+	}
+
 	// we only do GETs for now
 	if (method != METHOD_GET) {
 		static const char resp[] = RESP_405 "Allow: GET\r\n" END_HDRS;
