@@ -262,6 +262,7 @@ int main(void)
 	struct sockaddr_in bind_addr;
 	bind_addr.sin_port = htons(BIND_PORT);
 	bind_addr.sin_addr.s_addr = INADDR_ANY;
+	bind_addr.sin_family = AF_INET;
 	if (bind(sockfd, (struct sockaddr *) &bind_addr, sizeof(bind_addr))) {
 		perror("bind");
 		return 1;
