@@ -20,9 +20,10 @@
 #include <stdlib.h>
 #include <pwd.h>
 
+#include "tmplfuncs.gen"
+
 #define DEFAULT_PORT 80
 #define BUFLEN 4096
-#define TMPL_DIRECTORY "./tmpl"
 #define PAGES_DIRECTORY "./pages/"
 #define STATIC_DIRECTORY "./static/"
 #define SERVE_STATIC_FROM "/static/"
@@ -39,13 +40,25 @@
 #define CONTENT_TYPE_PLAINTEXT "Content-Type: text/plain\r\n"
 #define END_HDRS "\r\n"
 
+#define _send_tmpl(FD, TMPLNAME, ...) _TMPLFUNC_ ## TMPLNAME (FD, (struct _tmplargs_ ## TMPLNAME) __VA_ARGS__)
+#define send_htmltmpl(FD, TMPLNAME, ...) \
+	do { \
+		const char *__resp = \
+			RESP_200 \
+			CONTENT_TYPE_HTML \
+			END_HDRS \
+		; \
+		write(FD, __resp, strlen(__resp)); \
+		_send_tmpl(FD, TMPLNAME, __VA_ARGS__); \
+	} while (0)
+
 #define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 static const char *src_lines[] = {
 #include "quinelines.gen"
 };
 
-static int pagedirfd, staticdirfd, tmpldirfd;
+static int pagedirfd, staticdirfd;
 
 static _Atomic(unsigned long) *indexcount;
 
@@ -100,43 +113,6 @@ int openat_beneath(int dirfd, const char *pathname, int flags)
 		return -1;
 
 	return openat(dirfd, pathname, flags);
-}
-
-int vsend_tmpl(int connfd, const char *status_and_headers, const char *filename, va_list ap)
-{
-	int tmplfd = openat_beneath(tmpldirfd, filename, O_RDONLY);
-	if (tmplfd == -1)
-		return -1;
-	write(connfd, status_and_headers, strlen(status_and_headers));
-	struct stat stats;
-	fstat(tmplfd, &stats);
-	char *tmplstr = malloc(stats.st_size + 1);
-	tmplstr[stats.st_size] = '\0';
-	read(tmplfd, tmplstr, stats.st_size);
-	close(tmplfd);
-	vdprintf(connfd, tmplstr, ap);
-	free(tmplstr);
-	return 0;
-}
-
-/* render+send an HTML template */
-int send_htmltmpl(int connfd, const char *filename, ...)
-{
-	va_list ap;
-	va_start(ap, filename);
-	int ret = vsend_tmpl(connfd, RESP_200 CONTENT_TYPE_HTML END_HDRS, filename, ap);
-	va_end(ap);
-	return ret;
-}
-
-/* render+send a template */
-int send_tmpl(int connfd, const char *status_and_headers, const char *filename, ...)
-{
-	va_list ap;
-	va_start(ap, filename);
-	int ret = vsend_tmpl(connfd, status_and_headers, filename, ap);
-	va_end(ap);
-	return ret;
 }
 
 int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, const char *filename)
@@ -197,7 +173,7 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 		char timebuf[TIMEBUFLEN];
 		strftime(timebuf, TIMEBUFLEN, "%a %b %e %H:%M:%S %Z %Y", lnow);
 		unsigned long nreqs = 1 + atomic_fetch_add(indexcount, 1);
-		send_htmltmpl(fd, "index.html", timebuf, nreqs);
+		send_htmltmpl(fd, index_html, { .nowdate = timebuf, .reqcnt = nreqs });
 	} else if (!strcmp(uri, "/quine.c")) {
 		static const char resp[] = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
 		write(fd, resp, strlen(resp));
@@ -306,7 +282,6 @@ int main(int argc, char **argv)
 #ifdef __OpenBSD__
 	unveil(PAGES_DIRECTORY, "r");
 	unveil(STATIC_DIRECTORY, "r");
-	unveil(TMPL_DIRECTORY, "r");
 	unveil(NULL, NULL);
 
 	if (pledge("rpath stdio inet getpw proc id", NULL)) {
@@ -371,11 +346,6 @@ int main(int argc, char **argv)
 	if (staticdirfd == -1)
 		return 1;
 
-	tmpldirfd = open_dir_for_serving(TMPL_DIRECTORY);
-	if (tmpldirfd == -1)
-		return 1;
-
-
 	if (listen(sockfd, 5)) {
 		perror("listen");
 		return 1;
@@ -423,7 +393,6 @@ int main(int argc, char **argv)
 			close(connfd);
 			close(pagedirfd);
 			close(staticdirfd);
-			close(tmpldirfd);
 			return 0;
 		}
 	}

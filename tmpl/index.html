@@ -11,8 +11,8 @@
 <body>
 	<h1>Hello!</h1>
 	<ul>
-		<li>The time is <i>%s</i></li>
-		<li>This page has been requested %lu times since the last server restart</li>
+		<li>The time is <i><%= %s nowdate %></i></li>
+		<li>This page has been requested <%= %lu reqcnt %> times since the last server restart</li>
 		<li>See this website's <a href="/website.c">source code</a> (a quine!)</li>
 		<li>Get your <a href="/echoip">IP Address</a></li>
 	</ul>

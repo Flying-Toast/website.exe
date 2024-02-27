@@ -1,5 +1,6 @@
-CC=cc
 APP=website
+TEMPLATES=tmpl/index.html
+CC=cc
 CFLAGS=-Wall
 RM=rm -f
 
@@ -9,10 +10,14 @@ default: dev
 $(APP): $(APP).o
 	$(CC) $(CFLAGS) -o $(APP) $(APP).o
 
-$(APP).o: quinelines.gen
+$(APP).o: quinelines.gen tmplfuncs.gen
 
 quinelines.gen: $(APP).c
 	sed 's|^#include "quinelines.gen"$$|***LINES***|; s/\\/\\\\/g; s/"/\\"/g' $(APP).c | awk '{printf "\"%s\",\n", $$0}' > quinelines.gen
+
+tmplfuncs.gen: $(TEMPLATES)
+	$(RM) tmplfuncs.gen
+	echo "$^" | xargs -n1 ./compile_tmpl.awk >> tmplfuncs.gen
 
 .PHONY: dev
 dev: $(APP)
