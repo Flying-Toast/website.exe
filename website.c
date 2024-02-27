@@ -109,6 +109,7 @@ int vsend_tmpl(int connfd, const char *status_and_headers, const char *filename,
 	int tmplfd = openat_beneath(tmpldirfd, filename, O_RDONLY);
 	if (tmplfd == -1)
 		return -1;
+	write(connfd, status_and_headers, strlen(status_and_headers));
 	struct stat stats;
 	fstat(tmplfd, &stats);
 	char *tmplstr = malloc(stats.st_size + 1);
