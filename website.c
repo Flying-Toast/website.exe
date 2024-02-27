@@ -1,4 +1,8 @@
 #include <sys/mman.h>
+#if __has_include(<sys/sendfile.h>)
+#include <sys/sendfile.h>
+#define __HAS_SENDFILE
+#endif
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <netinet/in.h>
@@ -92,12 +96,6 @@ void write_quine(int fd, bool verbose)
 
 int openat_beneath(int dirfd, const char *pathname, int flags)
 {
-	//struct open_how how = {
-	//	.flags = flags,
-	//	.resolve = RESOLVE_BENEATH
-	//};
-	//return syscall(SYS_openat2, dirfd, pathname, &how, sizeof(how));
-
 	if (strstr(pathname, "..") || strstr(pathname, "//"))
 		return -1;
 
@@ -159,11 +157,14 @@ int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, cons
 	}
 
 	write(connfd, status_and_headers, strlen(status_and_headers));
-	//sendfile(connfd, filefd, NULL, stats.st_size);
+#ifdef __HAS_SENDFILE
+	sendfile(connfd, filefd, NULL, stats.st_size);
+#else
 	char *buf = malloc(stats.st_size);
 	read(filefd, buf, stats.st_size);
 	write(connfd, buf, stats.st_size);
 	free(buf);
+#endif
 
 	close(filefd);
 	return 0;

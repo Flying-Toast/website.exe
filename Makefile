@@ -3,6 +3,9 @@ APP=website
 CFLAGS=-Wall
 RM=rm -f
 
+.PHONY: default
+default: dev
+
 $(APP): $(APP).o
 	$(CC) $(CFLAGS) -o $(APP) $(APP).o
 
