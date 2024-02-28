@@ -81,11 +81,14 @@ END {
 	print("{\n");
 	print("\tdprintf(\n");
 	print("\t\tfd,\n");
-	print("\t\t\"" stringified "\",\n")
-	for (k in funcargs) { lastfuncargidx = k; }
+	print("\t\t\"" stringified "\"")
+	if (funcargidx) {
+		print(",");
+	}
+	print("\n");
 	for (k in funcargs) {
 		print("\t\targs." funcargs[k]);
-		if (k != lastfuncargidx) {
+		if (k != funcargidx - 1) {
 			print(",");
 		}
 		print("\n");
