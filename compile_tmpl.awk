@@ -1,5 +1,3 @@
-#!/usr/bin/awk -f
-
 BEGIN {
 	ORS = "";
 	arg = ARGV[1];

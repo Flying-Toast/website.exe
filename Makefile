@@ -17,7 +17,7 @@ quinelines.gen: $(APP).c
 
 tmplfuncs.gen: $(TEMPLATES)
 	$(RM) tmplfuncs.gen
-	echo "$^" | xargs -n1 ./compile_tmpl.awk >> tmplfuncs.gen
+	echo "$^" | xargs -n1 awk -f ./compile_tmpl.awk >> tmplfuncs.gen
 
 .PHONY: dev
 dev: $(APP)
