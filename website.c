@@ -165,7 +165,15 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 		strftime(timebuf, TIMEBUFLEN, "%a %b %e %H:%M:%S %Z %Y", lnow);
 		unsigned long nreqs = 1 + atomic_fetch_add(indexcount, 1);
 
-		render_html(fd, index_html, { .nowdate = timebuf, .reqcnt = nreqs });
+		render_html(
+			fd,
+			index_html,
+			{
+				.nowdate = timebuf,
+				.reqcnt = nreqs,
+				.loc = ARRAY_LEN(src_lines)
+			}
+		);
 	} else if (!strcmp(uri, "/quine.c")) {
 		static const char resp[] = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
 		write(fd, resp, strlen(resp));
