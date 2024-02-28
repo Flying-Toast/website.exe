@@ -295,7 +295,9 @@ int main(int argc, char **argv)
 	unveil(STATIC_DIRECTORY, "r");
 	unveil(NULL, NULL);
 
-	if (pledge("rpath stdio inet getpw proc id", NULL)) {
+	#define PLEDGE_PREFORK "inet getpw proc id"
+	#define PLEDGE_POSTFORK "stdio rpath"
+	if (pledge(PLEDGE_PREFORK " " PLEDGE_POSTFORK, NULL)) {
 		perror("pledge");
 		return 1;
 	}
@@ -347,7 +349,8 @@ int main(int argc, char **argv)
 		}
 	}
 
-	// TODO: use pthreads instead of forking, would avoid needing to mmap.
+	// TODO: use pthreads instead of forking? would avoid needing to mmap.
+	// hmm, but then we couldn't reduce the pledge post-fork...
 	indexcount = mmap(NULL, sizeof(*indexcount), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	*indexcount = 0;
 
@@ -380,6 +383,13 @@ int main(int argc, char **argv)
 		if (pid) { // parent
 			close(connfd);
 		} else { // child
+#ifdef __OpenBSD__
+			if (pledge(PLEDGE_POSTFORK, NULL)) {
+				perror("pledge");
+				return 1;
+			}
+#endif
+
 			char buf[BUFLEN] = {0};
 			enum method method;
 			char *uri, *vsn, *hdrs;
