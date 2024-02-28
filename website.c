@@ -339,7 +339,7 @@ int main(int argc, char **argv)
 	}
 
 	indexcount = mmap(NULL, sizeof(*indexcount), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	*indexcount = ATOMIC_VAR_INIT(0);
+	*indexcount = 0;
 
 	pagedirfd = open_dir_for_serving(PAGES_DIRECTORY);
 	if (pagedirfd == -1)
