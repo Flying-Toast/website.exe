@@ -41,6 +41,17 @@
 
 #define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
 
+#define TRY(CALL) \
+	({ \
+		errno = 0; \
+		typeof(CALL) __ret = CALL; \
+		if (errno) { \
+			perror(# CALL); \
+			exit(1); \
+		} \
+		__ret; \
+	})
+
 #define _send_tmpl(FD, TMPLNAME, ...) _tmplfunc_ ## TMPLNAME (FD, &(struct _tmplargs_ ## TMPLNAME) __VA_ARGS__)
 
 #define render_with_hdrs(FD, HDRS, TMPLNAME, ...) \
@@ -88,14 +99,14 @@ static void write_quine(int fd, bool verbose)
 		}
 
 		for (size_t i = 0; i < ARRAY_LEN(src_lines); i++) {
-			write(fd, "\"", 1);
+			TRY(write(fd, "\"", 1));
 
 			const char *line = src_lines[i];
 			size_t run = 0;
 			while (line[run] != '\0') {
 				if (line[run] == '\\' || line[run] == '"') {
 					if (run)
-						write(fd, line, run);
+						TRY(write(fd, line, run));
 					dprintf(fd, "\\%c", line[run]);
 					line += run + 1;
 					run = 0;
@@ -104,9 +115,9 @@ static void write_quine(int fd, bool verbose)
 				}
 			}
 			if (run)
-				write(fd, line, run);
+				TRY(write(fd, line, run));
 
-			write(fd, "\",\n", 3);
+			TRY(write(fd, "\",\n", 3));
 		}
 	}
 }
@@ -116,37 +127,33 @@ static int openat_beneath(int dirfd, const char *pathname, int flags)
 	if (strstr(pathname, "..") || strstr(pathname, "//"))
 		return -1;
 
-	return openat(dirfd, pathname, flags);
+	return TRY(openat(dirfd, pathname, flags));
 }
 
 static int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, const char *filename)
 {
 	int filefd = openat_beneath(dirfd, filename, O_RDONLY);
-	if (filefd == -1) {
-		perror("openat_beneath");
-		return -1;
-	}
 
 	struct stat stats;
-	fstat(filefd, &stats);
+	TRY(fstat(filefd, &stats));
 
 	if (!S_ISREG(stats.st_mode)) {
 		fprintf(stderr, "Can't send file `%s` - not a regular file\n", filename);
-		close(filefd);
+		TRY(close(filefd));
 		return -1;
 	}
 
-	write(connfd, status_and_headers, strlen(status_and_headers));
+	TRY(write(connfd, status_and_headers, strlen(status_and_headers)));
 #ifdef __HAS_SENDFILE
-	sendfile(connfd, filefd, NULL, stats.st_size);
+	TRY(sendfile(connfd, filefd, NULL, stats.st_size));
 #else
 	char *buf = malloc(stats.st_size);
-	read(filefd, buf, stats.st_size);
-	write(connfd, buf, stats.st_size);
+	TRY(read(filefd, buf, stats.st_size));
+	TRY(write(connfd, buf, stats.st_size));
 	free(buf);
 #endif
 
-	close(filefd);
+	TRY(close(filefd));
 	return 0;
 }
 
@@ -176,11 +183,11 @@ static void handle_request(int fd, struct sockaddr_in *sockip, enum method metho
 		);
 	} else if (!strcmp(uri, "/quine.c")) {
 		const char *resp = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
-		write(fd, resp, strlen(resp));
+		TRY(write(fd, resp, strlen(resp)));
 		write_quine(fd, true);
 	} else if (!strcmp(uri, "/website.c")) {
 		const char *resp = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
-		write(fd, resp, strlen(resp));
+		TRY(write(fd, resp, strlen(resp)));
 		write_quine(fd, false);
 	} else if (!strcmp(uri, "/echoip")) {
 		char *stringified = inet_ntoa(sockip->sin_addr);
@@ -210,20 +217,20 @@ static bool validate_request(int fd, enum method method, char *uri, char *vsn, c
 {
 	if (method == METHOD_NOT_RECOGNIZED) {
 		const char *resp = RESP_501 END_HDRS;
-		write(fd, resp, strlen(resp));
+		TRY(write(fd, resp, strlen(resp)));
 		return false;
 	}
 
 	// we only do GETs for now
 	if (method != METHOD_GET) {
 		const char *resp = RESP_405 "Allow: GET\r\n" END_HDRS;
-		write(fd, resp, strlen(resp));
+		TRY(write(fd, resp, strlen(resp)));
 		return false;
 	}
 
 	if (strcmp(vsn, "HTTP/1.0") && strcmp(vsn, "HTTP/1.1")) {
 		const char *resp = RESP_505 END_HDRS;
-		write(fd, resp, strlen(resp));
+		TRY(write(fd, resp, strlen(resp)));
 		return false;
 	}
 
@@ -282,25 +289,18 @@ static bool parse_request(char *req, enum method *method_out, char **uri_out, ch
 
 static int open_dir_for_serving(const char *pathname)
 {
-	int fd = open(pathname, O_DIRECTORY | O_RDONLY);
-	if (fd == -1) {
-		fprintf(stderr, "Can't open directory \"%s\" for serving: %s\n", pathname, strerror(errno));
-	}
-	return fd;
+	return TRY(open(pathname, O_DIRECTORY | O_RDONLY));
 }
 
 int main(int argc, char **argv)
 {
 #ifdef __OpenBSD__
-	unveil(STATIC_DIRECTORY, "r");
-	unveil(NULL, NULL);
+	TRY(unveil(STATIC_DIRECTORY, "r"));
+	TRY(unveil(NULL, NULL));
 
 	#define PLEDGE_PREFORK "inet getpw proc id"
 	#define PLEDGE_POSTFORK "stdio rpath"
-	if (pledge(PLEDGE_PREFORK " " PLEDGE_POSTFORK, NULL)) {
-		perror("pledge");
-		return 1;
-	}
+	TRY(pledge(PLEDGE_PREFORK " " PLEDGE_POSTFORK, NULL));
 #endif
 
 	int bindport = DEFAULT_PORT;
@@ -313,55 +313,34 @@ int main(int argc, char **argv)
 		}
 	}
 
-	signal(SIGCHLD, SIG_IGN);
+	TRY(signal(SIGCHLD, SIG_IGN));
 
-	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd == -1) {
-		perror("socket");
-		return 1;
-	}
+	int sockfd = TRY(socket(AF_INET, SOCK_STREAM, 0));
 
 	const int on = 1;
-	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) {
-		perror("setsockopt");
-		return 1;
-	}
+	TRY(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)));
 
 	struct sockaddr_in bind_addr;
 	bind_addr.sin_port = htons(bindport);
 	bind_addr.sin_addr.s_addr = INADDR_ANY;
 	bind_addr.sin_family = AF_INET;
-	if (bind(sockfd, (struct sockaddr *) &bind_addr, sizeof(bind_addr))) {
-		perror("bind");
-		return 1;
-	}
+	TRY(bind(sockfd, (struct sockaddr *) &bind_addr, sizeof(bind_addr)));
 
 	if (getuid() == 0) {
-		struct passwd *webpwd = getpwnam("simon");
-		if (!webpwd) {
-			perror("getpwnam");
-			return 1;
-		}
-
-		if (setuid(webpwd->pw_uid)) {
-			perror("setuid");
-			return 1;
-		}
+		struct passwd *webpwd = TRY(getpwnam("simon"));
+		TRY(setuid(webpwd->pw_uid));
 	}
 
 	// TODO: use pthreads instead of forking? would avoid needing to mmap.
 	// hmm, but then we couldn't reduce the pledge post-fork...
-	indexcount = mmap(NULL, sizeof(*indexcount), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	indexcount = TRY(mmap(NULL, sizeof(*indexcount), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
 	*indexcount = 0;
 
 	staticdirfd = open_dir_for_serving(STATIC_DIRECTORY);
 	if (staticdirfd == -1)
 		return 1;
 
-	if (listen(sockfd, 5)) {
-		perror("listen");
-		return 1;
-	}
+	TRY(listen(sockfd, 5));
 
 	for (;;) {
 		struct sockaddr_in saddr;
@@ -384,38 +363,32 @@ int main(int argc, char **argv)
 			close(connfd);
 		} else { // child
 #ifdef __OpenBSD__
-			if (pledge(PLEDGE_POSTFORK, NULL)) {
-				perror("pledge");
-				return 1;
-			}
+			TRY(pledge(PLEDGE_POSTFORK, NULL));
 #endif
 
 			char buf[BUFLEN] = {0};
 			enum method method;
 			char *uri, *vsn, *hdrs;
 
-			int nread = read(connfd, buf, BUFLEN - 1); // -1 to keep a NUL at the end
-			if (nread == -1) {
-				perror("read");
-			} else if (nread == BUFLEN - 1) {
+			int nread = TRY(read(connfd, buf, BUFLEN - 1)); // -1 to keep a NUL at the end
+			if (nread == BUFLEN - 1) {
 				render_with_hdrs(connfd, RESP_400 CONTENT_TYPE_HTML END_HDRS, req2long_html, {});
 			} else if (parse_request(buf, &method, &uri, &vsn, &hdrs)) {
 				if (validate_request(connfd, method, uri, vsn, hdrs))
 					handle_request(connfd, &saddr, method, uri);
 			} else { // parsing failed
 				const char *resp = RESP_400 END_HDRS;
-				write(connfd, resp, strlen(resp));
+				TRY(write(connfd, resp, strlen(resp)));
 			}
 
-			if (shutdown(connfd, SHUT_RDWR))
-				perror("shutdown");
-			close(connfd);
-			close(staticdirfd);
+			TRY(shutdown(connfd, SHUT_RDWR));
+			TRY(close(connfd));
+			TRY(close(staticdirfd));
 			return 0;
 		}
 	}
 
-	munmap(indexcount, sizeof(*indexcount));
-	close(sockfd);
-	close(staticdirfd);
+	TRY(munmap(indexcount, sizeof(*indexcount)));
+	TRY(close(sockfd));
+	TRY(close(staticdirfd));
 }
