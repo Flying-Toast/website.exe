@@ -76,8 +76,10 @@ END {
 			print("unsigned long ");
 		} else if (spec == "%d") {
 			print("int ");
+		} else if (spec == "%hu") {
+			print("unsigned short ");
 		} else {
-			printf("TEMPLATE ERROR(%s): I don't know the format spec %s", ARGV[1], spec) > "/dev/stderr";
+			printf("TEMPLATE ERROR(%s): I don't know the format spec %s\n", ARGV[1], spec) > "/dev/stderr";
 			exit 1;
 		}
 		print(argname ";\n");

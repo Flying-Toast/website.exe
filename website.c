@@ -177,7 +177,7 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 	} else if (!strcmp(uri, "/echoip")) {
 		char *stringified = inet_ntoa(sockip->sin_addr);
 
-		render_html(fd, yourip_html, { .ip = stringified });
+		render_html(fd, yourip_html, { .ip = stringified, .port = sockip->sin_port });
 	} else if (!strcmp(uri, "/howitworks")) {
 		render_html(fd, howmake_html, {});
 	} else if (!strcmp(uri, "/bounty")) {
