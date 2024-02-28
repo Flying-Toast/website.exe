@@ -1,8 +1,8 @@
 BEGIN {
 	ORS = "";
 	arg = ARGV[1];
-	sub(/tmpl\//, "", arg);
-	sub(/\./, "_", arg);
+	sub(/^tmpl\//, "", arg);
+	gsub(/\./, "_", arg);
 	funcname = "_TMPLFUNC_" arg;
 	funcargidx = 0;
 	stringified = "";
@@ -24,10 +24,15 @@ function tmplsplit(str, substs, pat, constparts) {
 		str = substr(str, RSTART + RLENGTH);
 	}
 	constparts[cpidx] = str;
+
+	for (k in constparts) {
+		gsub("%", "%%", constparts[k]);
+	}
 }
 
 1 {
 	gsub(/$/, "\\n", $0);
+	gsub(/\t/, "\\t", $0);
 	gsub(/"/, "\\\"", $0);
 	# avoid pesky trigraphs:
 	gsub(/\?/, "\"\"?\"\"");
@@ -69,6 +74,8 @@ END {
 			print("char *");
 		} else if (spec == "%lu") {
 			print("unsigned long ");
+		} else if (spec == "%d") {
+			print("int ");
 		} else {
 			printf("TEMPLATE ERROR(%s): I don't know the format spec %s", ARGV[1], spec) > "/dev/stderr";
 			exit 1;
@@ -77,7 +84,7 @@ END {
 	}
 	print("};\n");
 
-	print("static void " funcname "(int fd, struct _tmplargs_" arg " args)\n");
+	print("static void " funcname "(int fd, struct _tmplargs_" arg " *args)\n");
 	print("{\n");
 	print("\tdprintf(\n");
 	print("\t\tfd,\n");
@@ -87,7 +94,7 @@ END {
 	}
 	print("\n");
 	for (k in funcargs) {
-		print("\t\targs." funcargs[k]);
+		print("\t\targs->" funcargs[k]);
 		if (k != funcargidx - 1) {
 			print(",");
 		}

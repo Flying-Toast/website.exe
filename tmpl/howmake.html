@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>What in the heck is this??</title>
+	<link rel="icon" href="/static/favicon.ico">
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+	<h2>How Everything Works</h2>
+	<p>The project is structured like this:</p>
+	<pre>
+	website/
+	  | <a href="/static/Makefile">Makefile</a>
+	  | <a href="/website.c">website.c</a>
+	  | <a href="/static/compile_tmpl.awk">compile_tmpl.awk</a>
+	  | static/
+	    `- favicon.ico
+	    `- style.css
+	    `- ... more static files ...
+	  | tmpl/
+	    `- index.html
+	    `- req2long.html
+	    `- ... more templates ...</pre>
+
+	<h3>Compilation Process</h3>
+	<p>
+		Running <code>make</code> (see <code><a href="/static/Makefile">Makefile</a></code>) produces
+		the "<code>website</code>" executable.
+	</p>
+
+	<h3>HTML Templates</h3>
+	<p>
+		Dynamic templates (located in <code>tmpl/</code>) are precompiled into
+		a <code>printf()</code> call and included in the server executable itself.
+		The <code><a href="/static/compile_tmpl.awk">compile_tmpl.awk</a></code> script runs during
+		compilation (see <code>tmplfuncs.gen</code> rule in Makefile) and converts the
+		contents of template files into a C string literal + corresponding
+		<code>printf()</code> call.
+	</p>
+	<p>
+		Suppose the following are the contents of the file
+		<code>tmpl/my_example_tmpl.html</code>:
+	<pre>
+	&lt;!DOCTYPE html&gt;
+	&lt;html&gt;
+		&lt;head&gt;
+			&lt;title&gt;&lt;%= %s pagename %&gt; - Tiny Website&lt;/title&gt;
+		&lt;/head&gt;
+
+		&lt;body&gt;
+			&lt;h1&gt;&lt;%= %s pagename %&gt;&lt;/h1&gt;
+			&lt;p&gt;
+				&lt;%= %d first %&gt; + &lt;%= %d second %&gt; = &lt;%= %d sum %&gt;
+			&lt;/p&gt;
+		&lt;/body&gt;
+	&lt;/html&gt;</pre>
+	During compilation, the command
+	<code>awk -f compile_tmpl.awk tmpl/my_example_tmpl.html</code>
+	is run, which outputs the following:
+	<pre class="prewrap">
+	struct _tmplargs_my_example_tmpl_html {
+		char *pagename;
+		int first;
+		int second;
+		int sum;
+	};
+
+	static void _TMPLFUNC_my_example_tmpl_html(int fd, struct _tmplargs_foobar *args)
+	{
+		dprintf(
+			fd,
+			"&lt;!DOCTYPE html&gt;\\n&lt;html&gt;\\n\\t&lt;head&gt;\\n\\t\\t&lt;title&gt;%s - Tiny Website&lt;/title&gt;\\n\\t&lt;/head&gt;\\n\\n\\t&lt;body&gt;\\n&lt;h1&gt;%s&lt;/h1&gt;\\n\\t\\t&lt;p&gt;\\n\\t\\t\\t%d + %d = %d\\n\\t\\t&lt;/p&gt;\\n\\t&lt;/body&gt;\\n&lt;/html&gt;\\n",
+			args-&gt;pagename,
+			args-&gt;pagename,
+			args-&gt;first,
+			args-&gt;second,
+			args-&gt;sum
+		);
+	}
+	</pre>
+
+	This is then written to a file called <code>tmplfuncs.gen</code> that gets <code>#include</code>d
+	by <code><a href="/website.c">website.c</a></code>. Within <code>website.c</code>, the template can
+	be rendered using the <code>render_html()</code> macro like so:
+	<pre>
+	render_html(
+		sockfd,
+		my_example_tmpl_html,
+		{
+			.pagename = "Welcome",
+			.first = 12,
+			.second = 34,
+			.sum = 12 + 34
+		}
+	);</pre>
+
+	This in turn expands into a direct call to the generated template function:
+	<pre>
+	const char *__resp = RESP_200 CONTENT_TYPE_HTML END_HDRS;
+	write(sockfd, __resp, strlen(__resp));
+
+	_TMPLFUNC_my_example_tmpl_html(
+		sockfd,
+		&(struct _tmplargs_my_example_tmpl_html) {
+			.pagename = "Welcome",
+			.first = 12,
+			.second = 34,
+			.sum = 12 + 34
+		}
+	);</pre>
+	</p>
+
+	<h3>Static Files</h3>
+	<p>
+		Unlike templates, files in <code>static/</code> are <i>not</i>
+		compiled into the executable's text. Instead they are read off
+		the filesystem on-demand. When deploying the server, the
+		<code>website</code> executable must be run from within the
+		directory that contains <code>static/</code>.
+	</p>
+
+	<p>
+		When compiling for OpenBSD, only <code>"./static"</code> is
+		<code><a href="https://man.openbsd.org/unveil">unveil(2)</a>ed</code>.
+	</p>
+
+	<h3>Full Source Code</h3>
+	<p>The full source code can be viewed at <a href="https://github.com/Flying-Toast/website.exe" target="_blank">github.com/Flying-Toast/website.exe</a></p>
+
+	<br>
+	<br>
+	<p><a href="/">Back to homepage</a></p>
+
+	<hr>
+	<a href="https://www.openbsd.org"><img src="/static/powered.gif"></a>
+</body>
+
+</html>

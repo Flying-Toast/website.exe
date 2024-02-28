@@ -1,5 +1,5 @@
 APP=website
-TEMPLATES=tmpl/index.html tmpl/yourip.html tmpl/404_page.html tmpl/req2long.html
+TEMPLATES=tmpl/index.html tmpl/yourip.html tmpl/404_page.html tmpl/req2long.html tmpl/howmake.html
 CC=cc
 CFLAGS=-Wall
 RM=rm -f
@@ -7,8 +7,9 @@ RM=rm -f
 .PHONY: default
 default: dev
 
-$(APP): $(APP).o
+$(APP): $(APP).o Makefile compile_tmpl.awk
 	$(CC) $(CFLAGS) -o $(APP) $(APP).o
+	cp Makefile compile_tmpl.awk static/
 
 $(APP).o: quinelines.gen tmplfuncs.gen
 
@@ -34,3 +35,5 @@ clean:
 	$(RM) *.o
 	$(RM) *.gen
 	$(RM) $(APP)
+	$(RM) static/Makefile
+	$(RM) static/compile_tmpl.awk

@@ -41,7 +41,7 @@
 
 #define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-#define _send_tmpl(FD, TMPLNAME, ...) _TMPLFUNC_ ## TMPLNAME (FD, (struct _tmplargs_ ## TMPLNAME) __VA_ARGS__)
+#define _send_tmpl(FD, TMPLNAME, ...) _TMPLFUNC_ ## TMPLNAME (FD, &(struct _tmplargs_ ## TMPLNAME) __VA_ARGS__)
 
 #define render_with_hdrs(FD, HDRS, TMPLNAME, ...) \
 	do { \
@@ -178,6 +178,8 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 		char *stringified = inet_ntoa(sockip->sin_addr);
 
 		render_html(fd, yourip_html, { .ip = stringified });
+	} else if (!strcmp(uri, "/howitworks")) {
+		render_html(fd, howmake_html, {});
 	} else if (!strncmp(uri, SERVE_STATIC_FROM, strlen(SERVE_STATIC_FROM))) {
 		char *uri_in_dir = uri + strlen(SERVE_STATIC_FROM);
 		char *hdrs;

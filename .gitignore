@@ -1,3 +1,5 @@
 *.o
 /website
 *.gen
+/static/Makefile
+/static/compile_tmpl.awk
