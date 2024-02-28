@@ -3,7 +3,7 @@ BEGIN {
 	arg = ARGV[1];
 	sub(/^tmpl\//, "", arg);
 	gsub(/\./, "_", arg);
-	funcname = "_TMPLFUNC_" arg;
+	funcname = "_tmplfunc_" arg;
 	funcargidx = 0;
 	stringified = "";
 }

@@ -41,7 +41,7 @@
 
 #define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-#define _send_tmpl(FD, TMPLNAME, ...) _TMPLFUNC_ ## TMPLNAME (FD, &(struct _tmplargs_ ## TMPLNAME) __VA_ARGS__)
+#define _send_tmpl(FD, TMPLNAME, ...) _tmplfunc_ ## TMPLNAME (FD, &(struct _tmplargs_ ## TMPLNAME) __VA_ARGS__)
 
 #define render_with_hdrs(FD, HDRS, TMPLNAME, ...) \
 	do { \
@@ -294,8 +294,8 @@ int main(int argc, char **argv)
 #endif
 
 	int bindport = DEFAULT_PORT;
-	char *endptr;
 	if (argc == 2) {
+		char *endptr;
 		bindport = strtol(argv[1], &endptr, 10);
 		if (*endptr != '\0' || bindport < 1 || bindport > 65535) {
 			puts("port must be a number 1..65535");

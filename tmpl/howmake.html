@@ -68,7 +68,7 @@
 		int sum;
 	};
 
-	static void _TMPLFUNC_my_example_tmpl_html(int fd, struct _tmplargs_my_example_tmpl_html *args)
+	static void _tmplfunc_my_example_tmpl_html(int fd, struct _tmplargs_my_example_tmpl_html *args)
 	{
 		dprintf(
 			fd,
@@ -102,7 +102,7 @@
 	const char *__resp = RESP_200 CONTENT_TYPE_HTML END_HDRS;
 	write(sockfd, __resp, strlen(__resp));
 
-	_TMPLFUNC_my_example_tmpl_html(
+	_tmplfunc_my_example_tmpl_html(
 		sockfd,
 		&(struct _tmplargs_my_example_tmpl_html) {
 			.pagename = "Welcome",
@@ -123,7 +123,7 @@
 	</p>
 
 	<p>
-		When compiling for OpenBSD, only <code>"./static"</code> is
+		When compiling for OpenBSD, <code>"./static"</code> is
 		<code><a href="https://man.openbsd.org/unveil">unveil(2)</a>ed</code>.
 	</p>
 
