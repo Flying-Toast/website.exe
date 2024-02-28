@@ -29,6 +29,9 @@ function tmplsplit(str, substs, pat, constparts) {
 1 {
 	gsub(/$/, "\\n", $0);
 	gsub(/"/, "\\\"", $0);
+	# avoid pesky trigraphs:
+	gsub(/\?/, "\"\"?\"\"");
+
 	tmplsplit($0, substs, "<%= %[a-z]+ [a-z_]+ %>", constparts);
 
 	addstr(constparts[0]);
