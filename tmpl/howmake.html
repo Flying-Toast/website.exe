@@ -17,13 +17,13 @@
 	  | <a href="/website.c">website.c</a>
 	  | <a href="/static/compile_tmpl.awk">compile_tmpl.awk</a>
 	  | static/
-	    `- favicon.ico
-	    `- style.css
-	    `- ... more static files ...
+	    \_ favicon.ico
+	    \_ style.css
+	    \_ ... more static files ...
 	  | tmpl/
-	    `- index.html
-	    `- req2long.html
-	    `- ... more templates ...</pre>
+	    \_ index.html
+	    \_ req2long.html
+	    \_ ... more templates ...</pre>
 
 	<h3>Compilation Process</h3>
 	<p>
@@ -72,7 +72,7 @@
 	{
 		dprintf(
 			fd,
-			"&lt;!DOCTYPE html&gt;\\n&lt;html&gt;\\n\\t&lt;head&gt;\\n\\t\\t&lt;title&gt;%s - Tiny Website&lt;/title&gt;\\n\\t&lt;/head&gt;\\n\\n\\t&lt;body&gt;\\n&lt;h1&gt;%s&lt;/h1&gt;\\n\\t\\t&lt;p&gt;\\n\\t\\t\\t%d + %d = %d\\n\\t\\t&lt;/p&gt;\\n\\t&lt;/body&gt;\\n&lt;/html&gt;\\n",
+			"&lt;!DOCTYPE html&gt;\n&lt;html&gt;\n\t&lt;head&gt;\n\t\t&lt;title&gt;%s - Tiny Website&lt;/title&gt;\n\t&lt;/head&gt;\n\n\t&lt;body&gt;\n&lt;h1&gt;%s&lt;/h1&gt;\n\t\t&lt;p&gt;\n\t\t\t%d + %d = %d\n\t\t&lt;/p&gt;\n\t&lt;/body&gt;\n&lt;/html&gt;\n",
 			args-&gt;pagename,
 			args-&gt;pagename,
 			args-&gt;first,

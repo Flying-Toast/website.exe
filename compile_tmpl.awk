@@ -31,6 +31,7 @@ function tmplsplit(str, substs, pat, constparts) {
 }
 
 1 {
+	gsub(/\\/, "\\\\");
 	gsub(/$/, "\\n", $0);
 	gsub(/\t/, "\\t", $0);
 	gsub(/"/, "\\\"", $0);

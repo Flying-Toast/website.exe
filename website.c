@@ -209,7 +209,7 @@ static void handle_request(int fd, struct sockaddr_in *sockip, enum method metho
 static bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs)
 {
 	if (method == METHOD_NOT_RECOGNIZED) {
-		const char *resp = RESP_501;
+		const char *resp = RESP_501 END_HDRS;
 		write(fd, resp, strlen(resp));
 		return false;
 	}
@@ -222,7 +222,7 @@ static bool validate_request(int fd, enum method method, char *uri, char *vsn, c
 	}
 
 	if (strcmp(vsn, "HTTP/1.0") && strcmp(vsn, "HTTP/1.1")) {
-		const char *resp = RESP_505;
+		const char *resp = RESP_505 END_HDRS;
 		write(fd, resp, strlen(resp));
 		return false;
 	}
@@ -403,7 +403,7 @@ int main(int argc, char **argv)
 				if (validate_request(connfd, method, uri, vsn, hdrs))
 					handle_request(connfd, &saddr, method, uri);
 			} else { // parsing failed
-				const char *resp = RESP_400;
+				const char *resp = RESP_400 END_HDRS;
 				write(connfd, resp, strlen(resp));
 			}
 
