@@ -127,14 +127,16 @@ static void write_quine(int fd, bool verbose)
 static int openat_beneath(int dirfd, const char *pathname, int flags)
 {
 	if (strstr(pathname, "..") || strstr(pathname, "//"))
-		exit(1);
+		return -1;
 
-	return TRY(openat(dirfd, pathname, flags));
+	return openat(dirfd, pathname, flags);
 }
 
 static int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, const char *filename)
 {
 	int filefd = openat_beneath(dirfd, filename, O_RDONLY);
+	if (filefd == -1)
+		return -1;
 
 	struct stat stats;
 	TRY(fstat(filefd, &stats));
@@ -339,8 +341,6 @@ int main(int argc, char **argv)
 	*indexcount = 0;
 
 	staticdirfd = open_dir_for_serving(STATIC_DIRECTORY);
-	if (staticdirfd == -1)
-		return 1;
 
 	TRY(listen(sockfd, 5));
 
