@@ -184,7 +184,7 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 		write_quine(fd, false);
 	} else if (!strcmp(uri, "/echoip")) {
 		char *stringified = inet_ntoa(sockip->sin_addr);
-		dprintf(fd, RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS "Your IP Address is: %s\n", stringified);
+		send_htmltmpl(fd, yourip_html, { .ip = stringified });
 	} else if (!strncmp(uri, SERVE_STATIC_FROM, strlen(SERVE_STATIC_FROM))) {
 		if (send_file_in_dir(fd, RESP_200 END_HDRS, staticdirfd, uri + strlen(SERVE_STATIC_FROM))) {
 			not_found(fd);
