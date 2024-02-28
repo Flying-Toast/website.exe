@@ -41,12 +41,14 @@
 
 #define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
 
+#define __STRINGIFY(X) # X
+#define _STRINGIFY2(X) __STRINGIFY(X)
 #define TRY(CALL) \
 	({ \
 		errno = 0; \
 		typeof(CALL) __ret = CALL; \
 		if (errno) { \
-			perror(# CALL); \
+			perror("TRY(" __FILE__ ":" _STRINGIFY2(__LINE__) ")"); \
 			exit(1); \
 		} \
 		__ret; \
