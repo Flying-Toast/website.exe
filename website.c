@@ -41,7 +41,7 @@
 #define END_HDRS "\r\n"
 
 #define _send_tmpl(FD, TMPLNAME, ...) _TMPLFUNC_ ## TMPLNAME (FD, (struct _tmplargs_ ## TMPLNAME) __VA_ARGS__)
-#define send_htmltmpl(FD, TMPLNAME, ...) \
+#define render_html(FD, TMPLNAME, ...) \
 	do { \
 		const char *__resp = \
 			RESP_200 \
@@ -173,7 +173,8 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 		char timebuf[TIMEBUFLEN];
 		strftime(timebuf, TIMEBUFLEN, "%a %b %e %H:%M:%S %Z %Y", lnow);
 		unsigned long nreqs = 1 + atomic_fetch_add(indexcount, 1);
-		send_htmltmpl(fd, index_html, { .nowdate = timebuf, .reqcnt = nreqs });
+
+		render_html(fd, index_html, { .nowdate = timebuf, .reqcnt = nreqs });
 	} else if (!strcmp(uri, "/quine.c")) {
 		static const char resp[] = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
 		write(fd, resp, strlen(resp));
@@ -184,7 +185,8 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 		write_quine(fd, false);
 	} else if (!strcmp(uri, "/echoip")) {
 		char *stringified = inet_ntoa(sockip->sin_addr);
-		send_htmltmpl(fd, yourip_html, { .ip = stringified });
+
+		render_html(fd, yourip_html, { .ip = stringified });
 	} else if (!strncmp(uri, SERVE_STATIC_FROM, strlen(SERVE_STATIC_FROM))) {
 		if (send_file_in_dir(fd, RESP_200 END_HDRS, staticdirfd, uri + strlen(SERVE_STATIC_FROM))) {
 			not_found(fd);
