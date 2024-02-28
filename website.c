@@ -180,6 +180,8 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 		render_html(fd, yourip_html, { .ip = stringified });
 	} else if (!strcmp(uri, "/howitworks")) {
 		render_html(fd, howmake_html, {});
+	} else if (!strcmp(uri, "/bounty")) {
+		render_html(fd, bounty_html, {});
 	} else if (!strncmp(uri, SERVE_STATIC_FROM, strlen(SERVE_STATIC_FROM))) {
 		char *uri_in_dir = uri + strlen(SERVE_STATIC_FROM);
 		char *hdrs;
