@@ -282,7 +282,6 @@ int open_dir_for_serving(const char *pathname)
 int main(int argc, char **argv)
 {
 #ifdef __OpenBSD__
-	unveil(PAGES_DIRECTORY, "r");
 	unveil(STATIC_DIRECTORY, "r");
 	unveil(NULL, NULL);
 
