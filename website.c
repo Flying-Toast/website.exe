@@ -127,7 +127,7 @@ static void write_quine(int fd, bool verbose)
 static int openat_beneath(int dirfd, const char *pathname, int flags)
 {
 	if (strstr(pathname, "..") || strstr(pathname, "//"))
-		return -1;
+		exit(1);
 
 	return TRY(openat(dirfd, pathname, flags));
 }
