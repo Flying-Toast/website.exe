@@ -14,10 +14,24 @@ function addstr(part) {
 	stringified = stringified part;
 }
 
+function tmplsplit(str, substs, pat, constparts) {
+	for (k in substs) { delete substs[k]; }
+	for (k in constparts) { delete constparts[k]; }
+
+	cpidx = 0;
+	ssidx = 1;
+	while (match(str, pat)) {
+		constparts[cpidx++] = substr(str, 1, RSTART - 1);
+		substs[ssidx++] = substr(str, RSTART, RLENGTH);
+		str = substr(str, RSTART + RLENGTH);
+	}
+	constparts[cpidx] = str;
+}
+
 1 {
 	gsub(/$/, "\\n", $0);
 	gsub(/"/, "\\\"", $0);
-	patsplit($0, substs, /<%= %[a-z]+ [a-z_]+ %>/, constparts);
+	tmplsplit($0, substs, "<%= %[a-z]+ [a-z_]+ %>", constparts);
 
 	addstr(constparts[0]);
 	for (k in substs) {
