@@ -73,7 +73,7 @@ enum method {
 	METHOD_NOT_RECOGNIZED
 };
 
-void write_quine(int fd, bool verbose)
+static void write_quine(int fd, bool verbose)
 {
 	for (size_t lineidx = 0; lineidx < ARRAY_LEN(src_lines); lineidx++) {
 		const char *curr_line = src_lines[lineidx];
@@ -111,7 +111,7 @@ void write_quine(int fd, bool verbose)
 	}
 }
 
-int openat_beneath(int dirfd, const char *pathname, int flags)
+static int openat_beneath(int dirfd, const char *pathname, int flags)
 {
 	if (strstr(pathname, "..") || strstr(pathname, "//"))
 		return -1;
@@ -119,7 +119,7 @@ int openat_beneath(int dirfd, const char *pathname, int flags)
 	return openat(dirfd, pathname, flags);
 }
 
-int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, const char *filename)
+static int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, const char *filename)
 {
 	int filefd = openat_beneath(dirfd, filename, O_RDONLY);
 	if (filefd == -1) {
@@ -150,12 +150,12 @@ int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, cons
 	return 0;
 }
 
-void not_found(int fd)
+static void not_found(int fd)
 {
 	render_with_hdrs(fd, RESP_404 CONTENT_TYPE_HTML END_HDRS, 404_page_html, {});
 }
 
-void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char *uri)
+static void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char *uri)
 {
 	if (!strcmp(uri, "/")) {
 		time_t now = time(NULL);
@@ -175,11 +175,11 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 			}
 		);
 	} else if (!strcmp(uri, "/quine.c")) {
-		static const char resp[] = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
+		const char *resp = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
 		write(fd, resp, strlen(resp));
 		write_quine(fd, true);
 	} else if (!strcmp(uri, "/website.c")) {
-		static const char resp[] = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
+		const char *resp = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
 		write(fd, resp, strlen(resp));
 		write_quine(fd, false);
 	} else if (!strcmp(uri, "/echoip")) {
@@ -206,23 +206,23 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 	}
 }
 
-bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs)
+static bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs)
 {
 	if (method == METHOD_NOT_RECOGNIZED) {
-		static const char resp[] = RESP_501;
+		const char *resp = RESP_501;
 		write(fd, resp, strlen(resp));
 		return false;
 	}
 
 	// we only do GETs for now
 	if (method != METHOD_GET) {
-		static const char resp[] = RESP_405 "Allow: GET\r\n" END_HDRS;
+		const char *resp = RESP_405 "Allow: GET\r\n" END_HDRS;
 		write(fd, resp, strlen(resp));
 		return false;
 	}
 
 	if (strcmp(vsn, "HTTP/1.0") && strcmp(vsn, "HTTP/1.1")) {
-		static const char resp[] = RESP_505;
+		const char *resp = RESP_505;
 		write(fd, resp, strlen(resp));
 		return false;
 	}
@@ -230,7 +230,7 @@ bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hd
 	return true;
 }
 
-bool parse_request(char *req, enum method *method_out, char **uri_out, char **vsn_out, char **hdrs_out)
+static bool parse_request(char *req, enum method *method_out, char **uri_out, char **vsn_out, char **hdrs_out)
 {
 	// extract method
 	char *method_str = req;
@@ -280,7 +280,7 @@ bool parse_request(char *req, enum method *method_out, char **uri_out, char **vs
 	return true;
 }
 
-int open_dir_for_serving(const char *pathname)
+static int open_dir_for_serving(const char *pathname)
 {
 	int fd = open(pathname, O_DIRECTORY | O_RDONLY);
 	if (fd == -1) {
@@ -393,7 +393,7 @@ int main(int argc, char **argv)
 				if (validate_request(connfd, method, uri, vsn, hdrs))
 					handle_request(connfd, &saddr, method, uri);
 			} else { // parsing failed
-				static const char resp[] = RESP_400;
+				const char *resp = RESP_400;
 				write(connfd, resp, strlen(resp));
 			}
 
