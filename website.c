@@ -339,6 +339,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+	// TODO: use pthreads instead of forking, would avoid needing to mmap.
 	indexcount = mmap(NULL, sizeof(*indexcount), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	*indexcount = 0;
 

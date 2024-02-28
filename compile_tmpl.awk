@@ -40,14 +40,16 @@ function tmplsplit(str, substs, pat, constparts) {
 	tmplsplit($0, substs, "<%= %[a-z]+ [a-z_]+ %>", constparts);
 
 	addstr(constparts[0]);
-	for (k in substs) {
-		match(substs[k], /<%= %[a-z]+/);
+	substslen = 0;
+	for (k in substs) { substslen++; }
+	for (i = 1; i <= substslen; i++) {
+		match(substs[i], /<%= %[a-z]+/);
 		# 4 = len("<%= ")
-		fspec = substr(substs[k], RSTART + 4, RLENGTH - 4);
+		fspec = substr(substs[i], RSTART + 4, RLENGTH - 4);
 
-		match(substs[k], /[a-z_]+ %>/);
+		match(substs[i], /[a-z_]+ %>/);
 		# 3 = len(" %>")
-		argname = substr(substs[k], RSTART, RLENGTH - 3);
+		argname = substr(substs[i], RSTART, RLENGTH - 3);
 
 		if (fmtspecof[argname] && fmtspecof[argname] != fspec) {
 			printf( \
@@ -58,9 +60,9 @@ function tmplsplit(str, substs, pat, constparts) {
 		}
 		fmtspecof[argname] = fspec;
 		addstr(fspec);
-		addstr(constparts[k]);
+		addstr(constparts[i]);
 
-		funcargs[funcargidx++] = argname;
+		funcargs[++funcargidx] = argname;
 	}
 }
 
@@ -91,13 +93,14 @@ END {
 	print("\tdprintf(\n");
 	print("\t\tfd,\n");
 	print("\t\t\"" stringified "\"")
-	if (funcargidx) {
+	for (k in funcargs) { funcargslen++; }
+	if (funcargslen) {
 		print(",");
 	}
 	print("\n");
-	for (k in funcargs) {
-		print("\t\targs->" funcargs[k]);
-		if (k != funcargidx - 1) {
+	for (i = 1; i <= funcargslen; i++) {
+		print("\t\targs->" funcargs[i]);
+		if (i != funcargslen) {
 			print(",");
 		}
 		print("\n");
