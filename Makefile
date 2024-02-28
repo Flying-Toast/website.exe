@@ -1,5 +1,5 @@
 APP=website
-TEMPLATES=tmpl/index.html tmpl/yourip.html
+TEMPLATES=tmpl/index.html tmpl/yourip.html tmpl/404_page.html tmpl/req2long.html
 CC=cc
 CFLAGS=-Wall
 RM=rm -f

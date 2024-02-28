@@ -24,7 +24,6 @@
 
 #define DEFAULT_PORT 80
 #define BUFLEN 4096
-#define PAGES_DIRECTORY "./pages/"
 #define STATIC_DIRECTORY "./static/"
 #define SERVE_STATIC_FROM "/static/"
 
@@ -40,25 +39,30 @@
 #define CONTENT_TYPE_PLAINTEXT "Content-Type: text/plain\r\n"
 #define END_HDRS "\r\n"
 
+#define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 #define _send_tmpl(FD, TMPLNAME, ...) _TMPLFUNC_ ## TMPLNAME (FD, (struct _tmplargs_ ## TMPLNAME) __VA_ARGS__)
-#define render_html(FD, TMPLNAME, ...) \
+
+#define render_with_hdrs(FD, HDRS, TMPLNAME, ...) \
 	do { \
-		const char *__resp = \
-			RESP_200 \
-			CONTENT_TYPE_HTML \
-			END_HDRS \
-		; \
+		const char *__resp = HDRS; \
 		write(FD, __resp, strlen(__resp)); \
 		_send_tmpl(FD, TMPLNAME, __VA_ARGS__); \
 	} while (0)
 
-#define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
+#define render_html(FD, TMPLNAME, ...) \
+	render_with_hdrs( \
+		FD, \
+		RESP_200 CONTENT_TYPE_HTML END_HDRS, \
+		TMPLNAME, \
+		__VA_ARGS__ \
+	)
 
 static const char *src_lines[] = {
 #include "quinelines.gen"
 };
 
-static int pagedirfd, staticdirfd;
+static int staticdirfd;
 
 static _Atomic(unsigned long) *indexcount;
 
@@ -146,22 +150,9 @@ int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, cons
 	return 0;
 }
 
-void respond_with_page_or_500(int connfd, const char *status_and_headers, const char *page_filename)
-{
-	if (send_file_in_dir(connfd, status_and_headers, pagedirfd, page_filename)) {
-		static const char resp[] =
-			RESP_500
-			CONTENT_TYPE_PLAINTEXT
-			END_HDRS
-			"Server error"
-		;
-		write(connfd, resp, strlen(resp));
-	}
-}
-
 void not_found(int fd)
 {
-	respond_with_page_or_500(fd, RESP_404 CONTENT_TYPE_HTML END_HDRS, "404_page.html");
+	render_with_hdrs(fd, RESP_404 CONTENT_TYPE_HTML END_HDRS, 404_page_html, {});
 }
 
 void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char *uri)
@@ -188,9 +179,16 @@ void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char
 
 		render_html(fd, yourip_html, { .ip = stringified });
 	} else if (!strncmp(uri, SERVE_STATIC_FROM, strlen(SERVE_STATIC_FROM))) {
-		if (send_file_in_dir(fd, RESP_200 END_HDRS, staticdirfd, uri + strlen(SERVE_STATIC_FROM))) {
-			not_found(fd);
+		char *uri_in_dir = uri + strlen(SERVE_STATIC_FROM);
+		char *hdrs;
+		if (strstr(uri_in_dir, ".awk") || !strstr(uri_in_dir, ".")) {
+			hdrs = RESP_200 CONTENT_TYPE_PLAINTEXT END_HDRS;
+		} else {
+			hdrs = RESP_200 END_HDRS;
 		}
+
+		if (send_file_in_dir(fd, hdrs, staticdirfd, uri_in_dir))
+			not_found(fd);
 	} else {
 		not_found(fd);
 	}
@@ -341,9 +339,6 @@ int main(int argc, char **argv)
 	indexcount = mmap(NULL, sizeof(*indexcount), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	*indexcount = 0;
 
-	pagedirfd = open_dir_for_serving(PAGES_DIRECTORY);
-	if (pagedirfd == -1)
-		return 1;
 	staticdirfd = open_dir_for_serving(STATIC_DIRECTORY);
 	if (staticdirfd == -1)
 		return 1;
@@ -381,7 +376,7 @@ int main(int argc, char **argv)
 			if (nread == -1) {
 				perror("read");
 			} else if (nread == BUFLEN - 1) {
-				respond_with_page_or_500(connfd, RESP_400 CONTENT_TYPE_HTML END_HDRS, "req2long.html");
+				render_with_hdrs(connfd, RESP_400 CONTENT_TYPE_HTML END_HDRS, req2long_html, {});
 			} else if (parse_request(buf, &method, &uri, &vsn, &hdrs)) {
 				if (validate_request(connfd, method, uri, vsn, hdrs))
 					handle_request(connfd, &saddr, method, uri);
@@ -393,7 +388,6 @@ int main(int argc, char **argv)
 			if (shutdown(connfd, SHUT_RDWR))
 				perror("shutdown");
 			close(connfd);
-			close(pagedirfd);
 			close(staticdirfd);
 			return 0;
 		}
@@ -401,6 +395,5 @@ int main(int argc, char **argv)
 
 	munmap(indexcount, sizeof(*indexcount));
 	close(sockfd);
-	close(pagedirfd);
 	close(staticdirfd);
 }
