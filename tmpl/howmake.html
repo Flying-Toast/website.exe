@@ -24,6 +24,12 @@
 	    \_ index.html
 	    \_ req2long.html
 	    \_ ... more templates ...</pre>
+	<p>
+		The full source code can be viewed at
+		<a href="https://github.com/Flying-Toast/website.exe" target="_blank">
+			github.com/Flying-Toast/website.exe
+		</a>
+	</p>
 
 	<h3>Compilation Process</h3>
 	<p>
@@ -127,8 +133,19 @@
 		<code><a href="https://man.openbsd.org/unveil">unveil(2)</a>ed</code>.
 	</p>
 
-	<h3>Full Source Code</h3>
-	<p>The full source code can be viewed at <a href="https://github.com/Flying-Toast/website.exe" target="_blank">github.com/Flying-Toast/website.exe</a></p>
+	<h3>Request Lifecycle</h3>
+	<p>
+		The main process runs <code>accept()</code> in a loop to accept incoming TCP connections.
+		Each time a new connection comes in, we <code>fork()</code> a process to handle the connection
+		concurrently to any others. Within this process, we read a buffer of data from the socket and
+		then parse (<code>bool parse_request(char *req, enum method *method_out, char **uri_out,
+			char **vsn_out, char **hdrs_out)</code> in <code>website.c</code>) and validate
+		(<code>bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs)</code>)
+		the request. Finally, <code>void handle_request(int fd, struct sockaddr_in *sockip, enum method
+			method, char *uri)</code> is called, which runs the main request/response logic.
+		The main request/response logic consists of matching the request URI and returning the requested
+		content.
+	</p>
 
 	<br>
 	<br>
