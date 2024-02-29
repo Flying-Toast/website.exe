@@ -317,7 +317,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	TRY(signal(SIGCHLD, SIG_IGN));
+	TRY(sigaction(SIGCHLD, &(struct sigaction) { .sa_handler = SIG_IGN }, NULL));
 
 	int sockfd = TRY(socket(AF_INET, SOCK_STREAM, 0));
 
