@@ -1,8 +1,4 @@
 #include <sys/mman.h>
-#if __has_include(<sys/sendfile.h>)
-#include <sys/sendfile.h>
-#define __HAS_SENDFILE
-#endif
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <netinet/in.h>
@@ -148,14 +144,10 @@ static int send_file_in_dir(int connfd, const char *status_and_headers, int dirf
 	}
 
 	TRY(write(connfd, status_and_headers, strlen(status_and_headers)));
-#ifdef __HAS_SENDFILE
-	TRY(sendfile(connfd, filefd, NULL, stats.st_size));
-#else
 	char *buf = malloc(stats.st_size);
 	TRY(read(filefd, buf, stats.st_size));
 	TRY(write(connfd, buf, stats.st_size));
 	free(buf);
-#endif
 
 	TRY(close(filefd));
 	return 0;
@@ -335,8 +327,6 @@ int main(int argc, char **argv)
 		TRY(setuid(webpwd->pw_uid));
 	}
 
-	// TODO: use pthreads instead of forking? would avoid needing to mmap.
-	// hmm, but then we couldn't reduce the pledge post-fork...
 	indexcount = TRY(mmap(NULL, sizeof(*indexcount), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
 	*indexcount = 0;
 
@@ -367,6 +357,7 @@ int main(int argc, char **argv)
 #ifdef __OpenBSD__
 			TRY(pledge(PLEDGE_POSTFORK, NULL));
 #endif
+			ualarm(1000/*ms*/ * 1000/*us/ms*/, 0);
 
 			char buf[BUFLEN] = {0};
 			enum method method;

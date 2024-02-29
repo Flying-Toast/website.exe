@@ -144,7 +144,9 @@
 		the request. Finally, <code>void handle_request(int fd, struct sockaddr_in *sockip, enum method
 			method, char *uri)</code> is called, which runs the main request/response logic.
 		The main request/response logic consists of matching the request URI and returning the requested
-		content.
+		content. A request handler process is automatically killed if it hasn't finished handling its
+		request after a timeout. This mitigates some DoS attacks like
+		<a href="https://en.wikipedia.org/wiki/Slowloris_(computer_security)">slowloris</a>.
 	</p>
 
 	<br>
