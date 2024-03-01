@@ -122,7 +122,7 @@ static void write_quine(int fd, bool verbose)
 
 static int openat_beneath(int dirfd, const char *pathname, int flags)
 {
-	if (strstr(pathname, "..") || strstr(pathname, "//"))
+	if (strstr(pathname, "..") || strstr(pathname, "//") || *pathname == '/')
 		return -1;
 
 	return openat(dirfd, pathname, flags);
