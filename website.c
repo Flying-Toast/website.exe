@@ -370,7 +370,7 @@ int main(int argc, char **argv)
 				if (validate_request(connfd, method, uri, vsn, hdrs))
 					handle_request(connfd, &saddr, method, uri);
 			} else { // parsing failed
-				const char *resp = RESP_400 END_HDRS;
+				const char *resp = RESP_400 CONTENT_TYPE_PLAINTEXT END_HDRS "Bad Request 🖕\n";
 				TRY(write(connfd, resp, strlen(resp)));
 			}
 
