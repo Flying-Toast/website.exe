@@ -19,7 +19,6 @@
 #include "tmplfuncs.gen"
 
 #define DEFAULT_PORT 80
-#define BUFLEN 4096
 #define STATIC_DIRECTORY "./static/"
 #define SERVE_STATIC_FROM "/static/"
 
@@ -50,13 +49,11 @@
 		__ret; \
 	})
 
-#define _send_tmpl(FD, TMPLNAME, ...) _tmplfunc_ ## TMPLNAME (FD, &(struct _tmplargs_ ## TMPLNAME) __VA_ARGS__)
-
 #define render_with_hdrs(FD, HDRS, TMPLNAME, ...) \
 	do { \
 		const char *__resp = HDRS; \
 		write(FD, __resp, strlen(__resp)); \
-		_send_tmpl(FD, TMPLNAME, __VA_ARGS__); \
+		_tmplfunc_ ## TMPLNAME (FD, &(struct _tmplargs_ ## TMPLNAME) __VA_ARGS__); \
 	} while (0)
 
 #define render_html(FD, TMPLNAME, ...) \
@@ -67,14 +64,6 @@
 		__VA_ARGS__ \
 	)
 
-static const char *src_lines[] = {
-#include "quinelines.gen"
-};
-
-static int staticdirfd;
-
-static _Atomic(unsigned long) *indexcount;
-
 enum method {
 	METHOD_GET,
 	METHOD_HEAD,
@@ -82,8 +71,14 @@ enum method {
 	METHOD_NOT_RECOGNIZED
 };
 
-static void write_quine(int fd, bool verbose)
-{
+static const char *src_lines[] = {
+#include "quinelines.gen"
+};
+
+static int staticdirfd;
+static _Atomic(unsigned long) *indexcount;
+
+static void write_quine(int fd, bool verbose) {
 	for (size_t lineidx = 0; lineidx < ARRAY_LEN(src_lines); lineidx++) {
 		const char *curr_line = src_lines[lineidx];
 		if (strcmp(curr_line, "***LINES***")) {
@@ -120,17 +115,11 @@ static void write_quine(int fd, bool verbose)
 	}
 }
 
-static int openat_beneath(int dirfd, const char *pathname, int flags)
-{
-	if (strstr(pathname, "..") || strstr(pathname, "//") || *pathname == '/')
+static int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, const char *filename) {
+	if (*filename == '/' || *filename == '\0' || strstr(filename, "..") || strstr(filename, "//"))
 		return -1;
 
-	return openat(dirfd, pathname, flags);
-}
-
-static int send_file_in_dir(int connfd, const char *status_and_headers, int dirfd, const char *filename)
-{
-	int filefd = openat_beneath(dirfd, filename, O_RDONLY);
+	int filefd = openat(dirfd, filename, O_RDONLY);
 	if (filefd == -1)
 		return -1;
 
@@ -153,13 +142,11 @@ static int send_file_in_dir(int connfd, const char *status_and_headers, int dirf
 	return 0;
 }
 
-static void not_found(int fd)
-{
+static void not_found(int fd) {
 	render_with_hdrs(fd, RESP_404 CONTENT_TYPE_HTML END_HDRS, 404_page_html, {});
 }
 
-static void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char *uri)
-{
+static void handle_request(int fd, struct sockaddr_in *sockip, enum method method, char *uri) {
 	if (!strcmp(uri, "/")) {
 		time_t now = time(NULL);
 		struct tm *lnow = localtime(&now);
@@ -209,8 +196,7 @@ static void handle_request(int fd, struct sockaddr_in *sockip, enum method metho
 	}
 }
 
-static bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs)
-{
+static bool validate_request(int fd, enum method method, char *uri, char *vsn, char *hdrs) {
 	if (method == METHOD_NOT_RECOGNIZED) {
 		const char *resp = RESP_501 END_HDRS;
 		TRY(write(fd, resp, strlen(resp)));
@@ -233,8 +219,7 @@ static bool validate_request(int fd, enum method method, char *uri, char *vsn, c
 	return true;
 }
 
-static bool parse_request(char *req, enum method *method_out, char **uri_out, char **vsn_out, char **hdrs_out)
-{
+static bool parse_request(char *req, enum method *method_out, char **uri_out, char **vsn_out, char **hdrs_out) {
 	// extract method
 	char *method_str = req;
 	while (*req != ' ') {
@@ -283,13 +268,7 @@ static bool parse_request(char *req, enum method *method_out, char **uri_out, ch
 	return true;
 }
 
-static int open_dir_for_serving(const char *pathname)
-{
-	return TRY(open(pathname, O_DIRECTORY | O_RDONLY));
-}
-
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 #ifdef __OpenBSD__
 	TRY(unveil(STATIC_DIRECTORY, "r"));
 	TRY(unveil(NULL, NULL));
@@ -330,7 +309,7 @@ int main(int argc, char **argv)
 	indexcount = TRY(mmap(NULL, sizeof(*indexcount), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
 	*indexcount = 0;
 
-	staticdirfd = open_dir_for_serving(STATIC_DIRECTORY);
+	staticdirfd = TRY(open(STATIC_DIRECTORY, O_DIRECTORY | O_RDONLY));
 
 	TRY(listen(sockfd, 5));
 
@@ -359,6 +338,7 @@ int main(int argc, char **argv)
 #endif
 			ualarm(1000/*ms*/ * 1000/*us/ms*/, 0);
 
+			#define BUFLEN 4096
 			char buf[BUFLEN] = {0};
 			enum method method;
 			char *uri, *vsn, *hdrs;
