@@ -301,7 +301,7 @@ int main(int argc, char **argv) {
 	TRY(bind(sockfd, (struct sockaddr *) &bind_addr, sizeof(bind_addr)));
 
 	if (getuid() == 0) {
-		struct passwd *webpwd = TRY(getpwnam("simon"));
+		struct passwd *webpwd = TRY(getpwnam("nobody"));
 		TRY(setuid(webpwd->pw_uid));
 	}
 
