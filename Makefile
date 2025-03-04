@@ -1,5 +1,5 @@
 APP=website
-TEMPLATES=tmpl/index.html tmpl/yourip.html tmpl/404_page.html tmpl/req2long.html tmpl/howmake.html tmpl/bounty.html
+TEMPLATES=tmpl/index.html tmpl/yourip.html tmpl/404_page.html tmpl/req2long.html tmpl/howmake.html
 CC=cc
 CFLAGS=-Wall -O2
 RM=rm -f
